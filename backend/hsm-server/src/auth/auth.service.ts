@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { User, UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -7,11 +7,11 @@ export class AuthService {
 
   signIn(userName: string, pass: string): any {
     const user = this.userService.findOne(userName);
-    if (user?.password === pass) {
+    if (user?.password !== pass) {
       throw new UnauthorizedException();
     }
 
-    const { password, ...result } = user as User;
+    const { password, ...result } = user;
 
     return result;
   }
