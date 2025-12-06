@@ -1,3 +1,4 @@
+"use client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,11 +9,15 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
+  //TODO: decide whether use this method or form submit method
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
   return (
     <form className={cn("flex flex-col gap-6", className)} {...props}>
       <FieldGroup>
@@ -24,7 +29,14 @@ export function LoginForm({
         </div>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input id="email" type="email" placeholder="m@example.com" required />
+          <Input
+            id="email"
+            type="text"
+            placeholder="m@example.com"
+            required
+            value={userName}
+            onChange={(event) => setUserName(event.target.value)}
+          />
         </Field>
         <Field>
           <div className="flex items-center justify-between">
@@ -36,10 +48,33 @@ export function LoginForm({
               Forgot your password?
             </a>
           </div>
-          <Input id="password" type="password" required />
+          <Input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
         </Field>
         <Field>
-          <Button type="submit">Login</Button>
+          <Button
+            type="submit"
+            onClick={() => {
+              // console.log("this is the username password", userName, password);
+              fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  userName,
+                  password,
+                }),
+              });
+            }}
+          >
+            Login
+          </Button>
         </Field>
         <FieldSeparator>
           <span>Or continue with</span>
