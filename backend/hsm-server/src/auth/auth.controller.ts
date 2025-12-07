@@ -13,7 +13,6 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   //TODO: declaring dtos for user correctly
-  @HttpCode(HttpStatus.OK)
   @Post('login')
   signIn(@Body() signInDto: Record<string, any>) {
     try {
