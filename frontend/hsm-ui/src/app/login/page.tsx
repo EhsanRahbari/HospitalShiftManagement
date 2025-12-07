@@ -1,8 +1,34 @@
-import { GalleryVerticalEnd } from "lucide-react"
+"use client";
+import { GalleryVerticalEnd } from "lucide-react";
 
-import { LoginForm } from "@/components/login-form"
+import { LoginForm } from "@/components/login-form";
+import { FormEvent } from "react";
 
 export default function LoginPage() {
+  //TODO: handling error
+  //TODO: handling redirect if login was successful
+  //TODO: decide whether use this method or form submit method
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        userName: formData.get("email"),
+        password: formData.get("password"),
+      }),
+    });
+    if (response.status === 200) {
+      const data = await response.json();
+      console.log({ data });
+    } else {
+      // showing an error popup
+      console.error("there was an error!");
+    }
+  }
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
@@ -16,7 +42,7 @@ export default function LoginPage() {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-xs">
-            <LoginForm />
+            <LoginForm onSubmit={handleSubmit} />
           </div>
         </div>
       </div>
@@ -28,5 +54,5 @@ export default function LoginPage() {
         />
       </div>
     </div>
-  )
+  );
 }
