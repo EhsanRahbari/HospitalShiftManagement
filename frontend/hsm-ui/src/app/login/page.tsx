@@ -22,9 +22,9 @@ export default function LoginPage() {
         password: formData.get("password"),
       }),
     });
-    if (response.status === 200) {
+    if (response.status === 200 || response.status === 201) {
       const data = await response.json();
-      router.push("/dashboard");
+      router.push("/dashboard", {});
     } else {
       // showing an error popup
       console.error("there was an error!");
