@@ -1,6 +1,6 @@
 "use client";
 import { GalleryVerticalEnd } from "lucide-react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/login-form";
 import { FormEvent } from "react";
 
