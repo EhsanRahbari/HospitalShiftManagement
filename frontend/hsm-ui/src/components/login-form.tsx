@@ -13,12 +13,8 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-
   return (
-    <form
-      className={cn("flex flex-col gap-6", className)}
-      {...props}
-    >
+    <form className={cn("flex flex-col gap-6", className)} {...props}>
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-2xl font-bold">Login to your account</h1>
@@ -28,7 +24,13 @@ export function LoginForm({
         </div>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
-          <Input id="email" type="text" placeholder="m@example.com" required />
+          <Input
+            name="email"
+            id="email"
+            type="text"
+            placeholder="m@example.com"
+            required
+          />
         </Field>
         <Field>
           <div className="flex items-center justify-between">
@@ -40,18 +42,10 @@ export function LoginForm({
               Forgot your password?
             </a>
           </div>
-          <Input
-            id="password"
-            type="password"
-            required
-          />
+          <Input name="password" id="password" type="password" required />
         </Field>
         <Field>
-          <Button
-            type="submit"
-          >
-            Login
-          </Button>
+          <Button type="submit">Login</Button>
         </Field>
         <FieldSeparator>
           <span>Or continue with</span>
