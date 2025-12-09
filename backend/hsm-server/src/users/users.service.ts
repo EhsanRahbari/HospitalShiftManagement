@@ -14,6 +14,7 @@ export class UsersService {
   ];
 
   findOne(userName: string): User | undefined {
-    return this.Users.find((user) => user.userName === userName);
+    const result = this.Users.find((user) => user.userName === userName);
+    return result;
   }
 }
