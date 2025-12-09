@@ -1,10 +1,11 @@
 "use client";
 import { GalleryVerticalEnd } from "lucide-react";
-
+import { useRouter } from "next/router";
 import { LoginForm } from "@/components/login-form";
 import { FormEvent } from "react";
 
 export default function LoginPage() {
+  const router = useRouter();
   //TODO: handling error
   //TODO: handling redirect if login was successful
   //TODO: decide whether use this method or form submit method
@@ -23,7 +24,7 @@ export default function LoginPage() {
     });
     if (response.status === 200) {
       const data = await response.json();
-      console.log({ data });
+      router.push("/dashboard");
     } else {
       // showing an error popup
       console.error("there was an error!");
