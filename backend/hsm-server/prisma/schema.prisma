@@ -12,3 +12,41 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ===============================
+
+// ENUMS
+
+// ===============================
+
+enum Role {
+  ADMIN // Full system access, can create users
+  DOCTOR // Medical staff, manage own shifts
+  NURSE // Nursing Staff, assigned to shifts
+}
+
+//============================
+// MODELS
+//============================
+
+model USER {
+  id       String  @id @default(uuid())
+  username String  @unique //loging identifier
+  password String
+  role     Role    @default(NURSE)
+  isActive Boolean @default(true)
+
+  //timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Audit Trail: Track who created this user
+  createdById String?
+  createdBy   USER?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Reverse Relation:Users this admin created
+  createdUsers USER[] @relation("UserCreator")
+
+  //map to table name (postgresql convention:plural lowercase)
+  @@map("users")
+}
