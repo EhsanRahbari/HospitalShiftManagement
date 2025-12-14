@@ -29,7 +29,7 @@ enum Role {
 // MODELS
 //============================
 
-model USER {
+model User {
   id       String  @id @default(uuid())
   username String  @unique //loging identifier
   password String
@@ -42,10 +42,10 @@ model USER {
 
   // Audit Trail: Track who created this user
   createdById String?
-  createdBy   USER?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Reverse Relation:Users this admin created
-  createdUsers USER[] @relation("UserCreator")
+  createdUsers User[] @relation("UserCreator")
 
   //map to table name (postgresql convention:plural lowercase)
   @@map("users")
