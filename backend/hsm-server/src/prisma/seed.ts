@@ -3,7 +3,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { PrismaClient } from '../generated/client/index.js';
+import { PrismaClient } from 'generated/client/index.js';
 import * as bcrypt from 'bcrypt';
 
 // Create PostgreSQL connection pool

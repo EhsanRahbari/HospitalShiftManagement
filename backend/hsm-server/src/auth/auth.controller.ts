@@ -1,27 +1,54 @@
 import {
-  Body,
   Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
   HttpCode,
   HttpStatus,
-  Post,
-  UnauthorizedException,
 } from '@nestjs/common';
+
 import { AuthService } from './auth.service';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { LoginDto } from './dto/login.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private authSerivce: AuthService) {}
 
-  //TODO: declaring dtos for user correctly
+  /**
+   * POST /auth/login
+   * public route - no authentication needed
+   */
+  @Public()
+  @UseGuards(LocalAuthGuard)
   @Post('login')
-  signIn(@Body() signInDto: Record<string, any>) {
-    try {
-      return this.authService.signIn(signInDto.userName, signInDto.password);
-    } catch (error: unknown) {
-      if (error instanceof UnauthorizedException) {
-        console.log('the user is not authorized', error);
-        return {};
-      }
-    }
+  @HttpCode(HttpStatus.OK)
+  async login(@CurrentUser() user: any, @Body() loginDto: LoginDto) {
+    return this.authSerivce.login(user);
+  }
+
+  /**
+   * GET /auth/profile
+   * protected route - reuqires JWT token
+   */
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile')
+  async profile(@CurrentUser() user: any) {
+    return this.authSerivce.getProfile(user.id);
+  }
+
+  /**
+   * GET /auth/me
+   * protected route
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async getCurrentUser(@CurrentUser() user: any) {
+    return user;
   }
 }
