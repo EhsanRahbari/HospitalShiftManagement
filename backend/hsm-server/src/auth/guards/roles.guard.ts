@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { Reflector } from '@nestjs/core';
-import { Role } from '../decorators/roles.decorator';
+import { Role } from 'src/types/role.type';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Observable } from 'rxjs';
 
