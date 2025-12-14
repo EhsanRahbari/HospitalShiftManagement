@@ -1,5 +1,3 @@
-// src/hooks/use-auth.ts
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -20,7 +18,7 @@ export function useAuth() {
       const response = await authApi.login(credentials);
       setAuth(response.user, response.accessToken);
       toast.success("Login successful!");
-      router.push("/dashboard");
+      router.push("/dashboard"); // ✅ Updated path
       return response;
     } catch (error: any) {
       const message = error.message || "Invalid credentials";
@@ -33,7 +31,7 @@ export function useAuth() {
 
   const logout = () => {
     clearAuth();
-    router.push("/login");
+    router.push("/auth/login"); // ✅ Updated path
     toast.success("Logged out successfully");
   };
 
