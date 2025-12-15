@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/client" // ⬅️ Add this line
+  output   = "../../generated/client" // ⬅️ Add this line
 }
 
 datasource db {
@@ -30,12 +30,12 @@ enum Role {
 //============================
 
 model User {
-  id       String  @id @default(uuid())
-  username String  @unique //loging identifier
-  password String
-  role     Role    @default(NURSE)
-  isActive Boolean @default(true)
-
+  id        String   @id @default(uuid())
+  username  String   @unique //loging identifier
+  password  String
+  role      Role     @default(NURSE)
+  isActive  Boolean  @default(true)
+  shifts    Shift[]
   //timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -49,4 +49,36 @@ model User {
 
   //map to table name (postgresql convention:plural lowercase)
   @@map("users")
+}
+
+model Shift {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  description String?
+  shiftType   ShiftType   @default(REGULAR)
+  status      ShiftStatus @default(SCHEDULED)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([startTime])
+  @@map("shifts")
+}
+
+enum ShiftType {
+  REGULAR
+  OVERTIME
+  ON_CALL
+  EMERGENCY
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
