@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import {
   Sidebar,
@@ -25,12 +25,11 @@ import {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
-    clearAuth();
-    router.push("/login");
+    logout();
+    window.location.href = "/login";
   };
 
   // Admin navigation items

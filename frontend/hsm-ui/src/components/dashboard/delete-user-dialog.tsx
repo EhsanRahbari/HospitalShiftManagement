@@ -12,87 +12,60 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertTriangle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { Loader2, Trash2 } from "lucide-react";
 
 interface DeleteUserDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   user: User;
-  onSuccess: () => void;
 }
 
-export function DeleteUserDialog({
-  open,
-  onOpenChange,
-  user,
-  onSuccess,
-}: DeleteUserDialogProps) {
-  const { deleteUser } = useUsers();
+export function DeleteUserDialog({ user }: DeleteUserDialogProps) {
+  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { deleteUser } = useUsers();
 
   const handleDelete = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
+      console.log("🔵 Deleting user:", user.id);
+
       await deleteUser(user.id);
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
-      // Error is handled by the hook with toast
+
+      toast.success(`User ${user.username} deleted successfully`);
+      setOpen(false);
+    } catch (error: any) {
+      console.error("❌ Error deleting user:", error);
+      toast.error(error.message || "Failed to delete user");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-          </div>
-          <AlertDialogDescription className="space-y-3 pt-3">
-            <p>
-              Are you sure you want to delete{" "}
-              <span className="font-semibold text-gray-900">
-                {user.username}
-              </span>
-              ?
-            </p>
-
-            <div className="rounded-lg border bg-gray-50 p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Role:</span>
-                <Badge variant="secondary">{user.role}</Badge>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm text-gray-600">Status:</span>
-                <Badge variant={user.isActive ? "default" : "secondary"}>
-                  {user.isActive ? "Active" : "Inactive"}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-              <p className="text-sm text-red-800">
-                <strong>Warning:</strong> This action cannot be undone. The user
-                will be permanently removed from the system and will no longer
-                be able to log in.
-              </p>
-            </div>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the user{" "}
+            <strong>{user.username}</strong> and all associated data. This
+            action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-          <Button
-            variant="destructive"
+          <AlertDialogAction
             onClick={handleDelete}
             disabled={isLoading}
+            className="bg-red-600 hover:bg-red-700"
           >
             {isLoading ? (
               <>
@@ -102,7 +75,7 @@ export function DeleteUserDialog({
             ) : (
               "Delete User"
             )}
-          </Button>
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

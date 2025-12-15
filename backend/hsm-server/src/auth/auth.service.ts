@@ -49,11 +49,11 @@ export class AuthService {
     };
 
     return {
-      accessToken: this.jwtSerivce.sign(payload),
+      access_token: this.jwtSerivce.sign(payload),
       user: {
         id: user.id,
         username: user.username,
-        role: user.rol,
+        role: user.role,
         isActive: user.isActive,
       },
     };

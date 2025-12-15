@@ -12,24 +12,27 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
 
       setAuth: (user, token) => {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("token", token);
-          localStorage.setItem("user", JSON.stringify(user));
-        }
-        set({ user, token, isAuthenticated: true });
+        console.log("🔐 setAuth called:", { 
+          username: user.username, 
+          role: user.role,
+          hasToken: !!token 
+        });
+        
+        set({ 
+          user, 
+          token, 
+          isAuthenticated: true 
+        });
       },
 
       clearAuth: () => {
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-        }
+        console.log("🚪 Clearing auth");
         set({ user: null, token: null, isAuthenticated: false });
       },
     }),

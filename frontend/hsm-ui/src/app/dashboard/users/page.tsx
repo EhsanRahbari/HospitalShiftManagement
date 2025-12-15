@@ -1,222 +1,230 @@
-// src/app/dashboard/users/page.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useUsers } from "@/hooks/use-users";
+import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Plus, Search, Filter } from "lucide-react";
-import { UserTable } from "@/components/dashboard/user-table";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CreateUserDialog } from "@/components/dashboard/create-user-dialog";
 import { EditUserDialog } from "@/components/dashboard/edit-user-dialog";
 import { DeleteUserDialog } from "@/components/dashboard/delete-user-dialog";
-import { User } from "@/types/auth";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function UsersPage() {
-  const { users, meta, fetchUsers, isLoading } = useUsers();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  // Filters
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [page, setPage] = useState(1);
+  const [mounted, setMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const { users, pagination, isLoading, error, fetchUsers } = useUsers();
+  const { user, isAuthenticated } = useAuthStore();
+  const router = useRouter();
 
   useEffect(() => {
-    fetchUsers({
-      page,
-      limit: 10,
-      search: search || undefined,
-      role: roleFilter || undefined,
-      isActive: statusFilter ? statusFilter === "active" : undefined,
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    console.log("🔍 Users Page Check:", {
+      isAuthenticated,
+      username: user?.username,
+      role: user?.role,
     });
-  }, [page, search, roleFilter, statusFilter]);
 
-  const handleEdit = (user: User) => {
-    setSelectedUser(user);
-    setEditDialogOpen(true);
+    if (!isAuthenticated || !user) {
+      console.log("❌ Not authenticated");
+      router.push("/login");
+      return;
+    }
+
+    if (user.role !== "ADMIN") {
+      console.log("❌ Not admin");
+      router.push("/dashboard");
+      return;
+    }
+
+    console.log("✅ Admin authenticated, fetching users");
+    fetchUsers(currentPage, 10);
+  }, [mounted, user, isAuthenticated, currentPage, router]);
+
+  const handleNextPage = () => {
+    if (pagination && currentPage < pagination.totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
   };
 
-  const handleDelete = (user: User) => {
-    setSelectedUser(user);
-    setDeleteDialogOpen(true);
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
   };
 
-  const handleSuccess = () => {
-    fetchUsers({
-      page,
-      limit: 10,
-      search: search || undefined,
-      role: roleFilter || undefined,
-      isActive: statusFilter ? statusFilter === "active" : undefined,
-    });
-  };
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user || user.role !== "ADMIN") {
+    return null;
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Error</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-red-600">{error}</p>
+          <Button onClick={() => fetchUsers(currentPage, 10)} className="mt-4">
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Users Management</h1>
-          <p className="text-gray-600">Manage all users in the system</p>
+          <p className="text-muted-foreground">
+            Manage system users and their roles
+          </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create User
-        </Button>
+        <CreateUserDialog />
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-4 rounded-lg border bg-white p-4 md:flex-row">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Search by username..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <Select
-          value={roleFilter}
-          onValueChange={(value) => {
-            setRoleFilter(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="All Roles" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="ADMIN">Admin</SelectItem>
-            <SelectItem value="DOCTOR">Doctor</SelectItem>
-            <SelectItem value="NURSE">Nurse</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => {
-            setStatusFilter(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {(search || roleFilter || statusFilter) && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setRoleFilter("");
-              setStatusFilter("");
-              setPage(1);
-            }}
-          >
-            Clear
-          </Button>
-        )}
-      </div>
-
-      {/* Users table */}
-      <UserTable
-        users={users}
-        isLoading={isLoading}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-      />
-
-      {/* Pagination */}
-      {meta.totalPages > 1 && (
-        <div className="flex items-center justify-between rounded-lg border bg-white p-4">
-          <div className="text-sm text-gray-600">
-            Showing {users.length} of {meta.total} users
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() => setPage(page - 1)}
-            >
-              Previous
-            </Button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: meta.totalPages }, (_, i) => i + 1).map(
-                (pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={pageNum === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                )
-              )}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Users</CardTitle>
+          <CardDescription>
+            {pagination
+              ? `Showing ${users.length} of ${pagination.total} users`
+              : "Loading users..."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === meta.totalPages}
-              onClick={() => setPage(page + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+          ) : users.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No users found</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Username</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created At</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.username}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              user.role === "ADMIN"
+                                ? "default"
+                                : user.role === "DOCTOR"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                          >
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={user.isActive ? "default" : "destructive"}
+                          >
+                            {user.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <EditUserDialog user={user} />
+                            <DeleteUserDialog user={user} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-      {/* Dialogs */}
-      <CreateUserDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onSuccess={handleSuccess}
-      />
-
-      {selectedUser && (
-        <>
-          <EditUserDialog
-            open={editDialogOpen}
-            onOpenChange={setEditDialogOpen}
-            user={selectedUser}
-            onSuccess={handleSuccess}
-          />
-
-          <DeleteUserDialog
-            open={deleteDialogOpen}
-            onOpenChange={setDeleteDialogOpen}
-            user={selectedUser}
-            onSuccess={handleSuccess}
-          />
-        </>
-      )}
+              {pagination && pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePrevPage}
+                      disabled={currentPage === 1 || isLoading}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextPage}
+                      disabled={
+                        currentPage === pagination.totalPages || isLoading
+                      }
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
