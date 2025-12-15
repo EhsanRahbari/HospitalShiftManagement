@@ -1,24 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { User } from "@/types/auth";
-import { toast } from "sonner";
+import { create } from "zustand";
 import { useAuthStore } from "@/store/auth-store";
+import { User } from "@/types/auth";
 
-interface UserFilters {
-  page?: number;
-  limit?: number;
-  search?: string;
-  role?: string;
-  isActive?: boolean;
-}
-
-interface PaginationMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 interface UserStats {
   total: number;
@@ -31,209 +17,199 @@ interface UserStats {
   };
 }
 
-export function useUsers() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [meta, setMeta] = useState<PaginationMeta>({
-    total: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const { token } = useAuthStore();
+interface PaginatedUsers {
+  data: User[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
-  const getHeaders = () => ({
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  });
+interface UsersState {
+  users: User[];
+  stats: UserStats | null;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  } | null;
+  isLoading: boolean;
+  error: string | null;
+  fetchUsers: (page?: number, limit?: number) => Promise<void>;
+  fetchStats: () => Promise<void>;
+  createUser: (userData: Partial<User>) => Promise<void>;
+  updateUser: (id: string, userData: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+}
 
-  const fetchUsers = async (filters: UserFilters = {}) => {
-    setIsLoading(true);
+export const useUsers = create<UsersState>((set, get) => ({
+  users: [],
+  stats: null,
+  pagination: null,
+  isLoading: false,
+  error: null,
+
+  fetchUsers: async (page = 1, limit = 10) => {
     try {
-      console.log(
-        "🔵 Fetching users with token:",
-        token ? "Token exists" : "No token"
-      );
+      set({ isLoading: true, error: null });
 
-      const params = new URLSearchParams();
-      if (filters.page) params.append("page", filters.page.toString());
-      if (filters.limit) params.append("limit", filters.limit.toString());
-      if (filters.search) params.append("search", filters.search);
-      if (filters.role) params.append("role", filters.role);
-      if (filters.isActive !== undefined)
-        params.append("isActive", filters.isActive.toString());
+      const { token } = useAuthStore.getState();
 
-      const url = `http://localhost:3001/api/users?${params.toString()}`;
+      if (!token) {
+        console.log("❌ No token available");
+        set({ isLoading: false, error: "No authentication token" });
+        return;
+      }
+
+      console.log("🔵 Fetching users - page:", page, "limit:", limit);
+
+      const url = `${API_URL}/users?page=${page}&limit=${limit}`;
       console.log("🔵 Fetch URL:", url);
 
       const response = await fetch(url, {
-        method: "GET",
-        headers: getHeaders(),
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       console.log("🔵 Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("🔴 Error response:", errorData);
         throw new Error(errorData.message || "Failed to fetch users");
       }
 
-      const data = await response.json();
-      console.log("🔵 Users data received:", data);
+      const data: PaginatedUsers = await response.json();
+      console.log("✅ Users data:", data);
 
-      setUsers(data.data || data);
-      if (data.meta) {
-        setMeta(data.meta);
+      set({
+        users: data.data,
+        pagination: {
+          total: data.total,
+          page: data.page,
+          limit: data.limit,
+          totalPages: data.totalPages,
+        },
+        isLoading: false,
+      });
+    } catch (error: any) {
+      console.error("❌ Error fetching users:", error);
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  fetchStats: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        console.log("❌ No token available for stats");
+        set({ isLoading: false, error: "No authentication token" });
+        return;
       }
 
-      return data;
-    } catch (error: any) {
-      console.error("🔴 Fetch users error:", error);
-      toast.error(error.message || "Failed to fetch users");
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      console.log("🔵 Fetching stats with token");
 
-  const fetchStats = async () => {
-    try {
-      console.log("🔵 Fetching stats...");
-
-      const response = await fetch("http://localhost:3001/api/users/stats", {
-        method: "GET",
-        headers: getHeaders(),
+      const response = await fetch(`${API_URL}/users/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       console.log("🔵 Stats response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("🔴 Stats error response:", errorData);
+        console.error("❌ Stats error:", errorData);
         throw new Error(errorData.message || "Failed to fetch stats");
       }
 
-      const data = await response.json();
-      console.log("🔵 Stats data received:", data);
+      const data: UserStats = await response.json();
+      console.log("✅ Stats data:", data);
 
-      setStats(data);
-      return data;
+      set({ stats: data, isLoading: false });
     } catch (error: any) {
-      console.error("🔴 Fetch stats error:", error);
-      toast.error(error.message || "Failed to fetch statistics");
-      throw error;
+      console.error("❌ Error fetching stats:", error);
+      set({ error: error.message, isLoading: false, stats: null });
     }
-  };
+  },
 
-  const createUser = async (userData: {
-    username: string;
-    password: string;
-    role: string;
-    isActive: boolean;
-  }) => {
+  createUser: async (userData) => {
     try {
-      console.log("🔵 Creating user:", userData);
+      const { token } = useAuthStore.getState();
+      if (!token) throw new Error("No authentication token");
 
-      const response = await fetch("http://localhost:3001/api/users", {
+      const response = await fetch(`${API_URL}/users`, {
         method: "POST",
-        headers: getHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(userData),
       });
 
-      console.log("🔵 Create user response status:", response.status);
-
       if (!response.ok) {
-        const error = await response.json();
-        console.error("🔴 Create user error:", error);
-        throw new Error(error.message || "Failed to create user");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create user");
       }
 
-      const data = await response.json();
-      console.log("🔵 User created:", data);
-
-      toast.success("User created successfully");
-      return data;
+      await get().fetchUsers();
     } catch (error: any) {
-      console.error("🔴 Create user error:", error);
-      toast.error(error.message || "Failed to create user");
+      set({ error: error.message });
       throw error;
     }
-  };
+  },
 
-  const updateUser = async (
-    id: string,
-    userData: {
-      username?: string;
-      password?: string;
-      role?: string;
-      isActive?: boolean;
-    }
-  ) => {
+  updateUser: async (id, userData) => {
     try {
-      console.log("🔵 Updating user:", id, userData);
+      const { token } = useAuthStore.getState();
+      if (!token) throw new Error("No authentication token");
 
-      const response = await fetch(`http://localhost:3001/api/users/${id}`, {
+      const response = await fetch(`${API_URL}/users/${id}`, {
         method: "PATCH",
-        headers: getHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(userData),
       });
 
-      console.log("🔵 Update user response status:", response.status);
-
       if (!response.ok) {
-        const error = await response.json();
-        console.error("🔴 Update user error:", error);
-        throw new Error(error.message || "Failed to update user");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update user");
       }
 
-      const data = await response.json();
-      console.log("🔵 User updated:", data);
-
-      toast.success("User updated successfully");
-      return data;
+      await get().fetchUsers();
     } catch (error: any) {
-      console.error("🔴 Update user error:", error);
-      toast.error(error.message || "Failed to update user");
+      set({ error: error.message });
       throw error;
     }
-  };
+  },
 
-  const deleteUser = async (id: string) => {
+  deleteUser: async (id) => {
     try {
-      console.log("🔵 Deleting user:", id);
+      const { token } = useAuthStore.getState();
+      if (!token) throw new Error("No authentication token");
 
-      const response = await fetch(`http://localhost:3001/api/users/${id}`, {
+      const response = await fetch(`${API_URL}/users/${id}`, {
         method: "DELETE",
-        headers: getHeaders(),
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      console.log("🔵 Delete user response status:", response.status);
-
       if (!response.ok) {
-        const error = await response.json();
-        console.error("🔴 Delete user error:", error);
-        throw new Error(error.message || "Failed to delete user");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete user");
       }
 
-      toast.success("User deleted successfully");
+      await get().fetchUsers();
     } catch (error: any) {
-      console.error("🔴 Delete user error:", error);
-      toast.error(error.message || "Failed to delete user");
+      set({ error: error.message });
       throw error;
     }
-  };
-
-  return {
-    users,
-    stats,
-    meta,
-    isLoading,
-    fetchUsers,
-    fetchStats,
-    createUser,
-    updateUser,
-    deleteUser,
-  };
-}
+  },
+}));

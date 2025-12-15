@@ -3,7 +3,12 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
-import { PrismaClient } from 'generated/client/index.js';
+import {
+  PrismaClient,
+  Role,
+  ShiftStatus,
+  ShiftType,
+} from 'generated/client/index.js';
 import * as bcrypt from 'bcrypt';
 
 // Create PostgreSQL connection pool
@@ -22,84 +27,110 @@ const prisma = new PrismaClient({ adapter });
 const SALT_ROUNDS = 10;
 
 async function main() {
-  console.log('🌱 Start seeding...\n');
+  console.log('🌱 Starting seed...');
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash('admin123', SALT_ROUNDS);
-
-  // Create admin user (upsert = create or update if exists)
+  // Create admin user
+  const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: {}, // Don't update if exists
+    update: {},
     create: {
       username: 'admin',
-      password: hashedPassword,
-      role: 'ADMIN',
+      password: adminPassword,
+      role: Role.ADMIN,
       isActive: true,
     },
   });
+  console.log('✅ Admin user created:', admin.username);
 
-  console.log('👤 Admin user:', {
-    id: admin.id,
-    username: admin.username,
-    role: admin.role,
-  });
-
-  // Create sample doctor
-  const doctorPassword = await bcrypt.hash('doctor123', SALT_ROUNDS);
-
+  // Create test doctor
+  const doctorPassword = await bcrypt.hash('doctor123', 10);
   const doctor = await prisma.user.upsert({
-    where: { username: 'dr.smith' },
+    where: { username: 'doctor1' },
     update: {},
     create: {
-      username: 'dr.smith',
+      username: 'doctor1',
       password: doctorPassword,
-      role: 'DOCTOR',
+      role: Role.DOCTOR,
       isActive: true,
-      createdById: admin.id,
     },
   });
+  console.log('✅ Doctor user created:', doctor.username);
 
-  console.log('👨‍⚕️ Doctor user:', {
-    id: doctor.id,
-    username: doctor.username,
-    role: doctor.role,
-  });
-
-  // Create sample nurse
-  const nursePassword = await bcrypt.hash('nurse123', SALT_ROUNDS);
-
+  // Create test nurse
+  const nursePassword = await bcrypt.hash('nurse123', 10);
   const nurse = await prisma.user.upsert({
-    where: { username: 'nurse.jones' },
+    where: { username: 'nurse1' },
     update: {},
     create: {
-      username: 'nurse.jones',
+      username: 'nurse1',
       password: nursePassword,
-      role: 'NURSE',
+      role: Role.NURSE,
       isActive: true,
-      createdById: admin.id,
     },
   });
+  console.log('✅ Nurse user created:', nurse.username);
 
-  console.log('👩‍⚕️ Nurse user:', {
-    id: nurse.id,
-    username: nurse.username,
-    role: nurse.role,
-  });
+  // Create some shifts for doctor
+  const now = new Date();
+  const shifts = [];
 
-  // Summary
-  const count = await prisma.user.count();
-  console.log(`\n✅ Seeding finished. Total users: ${count}\n`);
+  // This week's shifts
+  for (let i = 0; i < 5; i++) {
+    const shiftDate = new Date(now);
+    shiftDate.setDate(now.getDate() + i);
+    shiftDate.setHours(8, 0, 0, 0);
+
+    const endDate = new Date(shiftDate);
+    endDate.setHours(16, 0, 0, 0);
+
+    const shift = await prisma.shift.create({
+      data: {
+        userId: doctor.id,
+        title: `Morning Shift - Day ${i + 1}`,
+        startTime: shiftDate,
+        endTime: endDate,
+        description: 'Regular morning shift',
+        shiftType: ShiftType.REGULAR,
+        status: ShiftStatus.SCHEDULED,
+      },
+    });
+    shifts.push(shift);
+  }
+
+  // Create shifts for nurse
+  for (let i = 0; i < 5; i++) {
+    const shiftDate = new Date(now);
+    shiftDate.setDate(now.getDate() + i);
+    shiftDate.setHours(16, 0, 0, 0);
+
+    const endDate = new Date(shiftDate);
+    endDate.setHours(0, 0, 0, 0);
+    endDate.setDate(endDate.getDate() + 1);
+
+    const shift = await prisma.shift.create({
+      data: {
+        userId: nurse.id,
+        title: `Night Shift - Day ${i + 1}`,
+        startTime: shiftDate,
+        endTime: endDate,
+        description: 'Regular night shift',
+        shiftType: ShiftType.REGULAR,
+        status: ShiftStatus.SCHEDULED,
+      },
+    });
+    shifts.push(shift);
+  }
+
+  console.log(`✅ Created ${shifts.length} shifts`);
+  console.log('🌱 Seed completed!');
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect();
-    await pool.end();
-  })
-  .catch(async (e) => {
-    console.error('❌ Seeding failed:', e);
-    await prisma.$disconnect();
-    await pool.end();
+  .catch((e) => {
+    console.error('❌ Seed error:', e);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });

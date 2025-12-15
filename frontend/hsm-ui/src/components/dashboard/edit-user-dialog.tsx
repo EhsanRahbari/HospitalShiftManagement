@@ -13,18 +13,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -32,125 +30,95 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Loader2, Pencil } from "lucide-react";
 
-const editUserSchema = z
-  .object({
-    username: z
-      .string()
-      .min(3, "Username must be at least 3 characters")
-      .max(50, "Username must be less than 50 characters")
-      .regex(
-        /^[a-zA-Z0-9._-]+$/,
-        "Username can only contain letters, numbers, dots, underscores, and hyphens"
-      ),
-    password: z
-      .string()
-      .min(6, "Password must be at least 6 characters")
-      .max(100, "Password must be less than 100 characters")
-      .optional()
-      .or(z.literal("")),
-    confirmPassword: z.string().optional(),
-    role: z.enum(["ADMIN", "DOCTOR", "NURSE"], {
-      required_error: "Please select a role",
-    }),
-    isActive: z.boolean().default(true),
-  })
-  .refine(
-    (data) => {
-      // Only validate password match if password is provided
-      if (data.password && data.password.length > 0) {
-        return data.password === data.confirmPassword;
-      }
-      return true;
-    },
-    {
-      message: "Passwords don't match",
-      path: ["confirmPassword"],
-    }
-  );
-
-type EditUserFormValues = z.infer<typeof editUserSchema>;
+const formSchema = z.object({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().optional(),
+  role: z.enum(["ADMIN", "DOCTOR", "NURSE"]),
+  isActive: z.boolean(),
+});
 
 interface EditUserDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   user: User;
-  onSuccess: () => void;
 }
 
-export function EditUserDialog({
-  open,
-  onOpenChange,
-  user,
-  onSuccess,
-}: EditUserDialogProps) {
-  const { updateUser } = useUsers();
+export function EditUserDialog({ user }: EditUserDialogProps) {
+  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { updateUser } = useUsers();
 
-  const form = useForm<EditUserFormValues>({
-    resolver: zodResolver(editUserSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       username: user.username,
       password: "",
-      confirmPassword: "",
-      role: user.role,
+      role: user.role as "ADMIN" | "DOCTOR" | "NURSE",
       isActive: user.isActive,
     },
   });
 
   // Reset form when user changes
   useEffect(() => {
-    if (user) {
-      form.reset({
-        username: user.username,
-        password: "",
-        confirmPassword: "",
-        role: user.role,
-        isActive: user.isActive,
-      });
-    }
+    form.reset({
+      username: user.username,
+      password: "",
+      role: user.role as "ADMIN" | "DOCTOR" | "NURSE",
+      isActive: user.isActive,
+    });
   }, [user, form]);
 
-  const onSubmit = async (values: EditUserFormValues) => {
-    setIsLoading(true);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      setIsLoading(true);
+      console.log("Updating user:", user.id, values);
+
+      // Remove password if empty
       const updateData: any = {
         username: values.username,
         role: values.role,
         isActive: values.isActive,
       };
 
-      // Only include password if it's provided
-      if (values.password && values.password.length > 0) {
+      if (values.password && values.password.length >= 6) {
         updateData.password = values.password;
       }
 
       await updateUser(user.id, updateData);
-      form.reset();
-      onOpenChange(false);
-      onSuccess();
-    } catch (error) {
-      // Error is handled by the hook with toast
+
+      toast.success("User updated successfully!");
+      setOpen(false);
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      toast.error(error.message || "Failed to update user");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>
-            Update user information. Leave password blank to keep it unchanged.
+            Update user information. Leave password empty to keep current
+            password.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Username */}
             <FormField
               control={form.control}
               name="username"
@@ -159,53 +127,28 @@ export function EditUserDialog({
                   <FormLabel>Username</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="john.doe"
-                      {...field}
+                      placeholder="Enter username"
                       disabled={isLoading}
+                      {...field}
                     />
                   </FormControl>
-                  <FormDescription>This will be used for login</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Password (Optional) */}
             <FormField
               control={form.control}
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>New Password (Optional)</FormLabel>
+                  <FormLabel>Password (optional)</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder="Leave blank to keep current"
-                      {...field}
+                      placeholder="Enter new password or leave empty"
                       disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Only fill this if you want to change the password
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Confirm Password */}
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Confirm New Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Confirm new password"
                       {...field}
-                      disabled={isLoading}
                     />
                   </FormControl>
                   <FormMessage />
@@ -213,7 +156,6 @@ export function EditUserDialog({
               )}
             />
 
-            {/* Role */}
             <FormField
               control={form.control}
               name="role"
@@ -231,50 +173,16 @@ export function EditUserDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="ADMIN">
-                        <div className="flex items-center gap-2">
-                          <span>👑</span>
-                          <div>
-                            <div className="font-medium">Administrator</div>
-                            <div className="text-xs text-gray-500">
-                              Full system access
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="DOCTOR">
-                        <div className="flex items-center gap-2">
-                          <span>👨‍⚕️</span>
-                          <div>
-                            <div className="font-medium">Doctor</div>
-                            <div className="text-xs text-gray-500">
-                              Medical professional
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="NURSE">
-                        <div className="flex items-center gap-2">
-                          <span>👩‍⚕️</span>
-                          <div>
-                            <div className="font-medium">Nurse</div>
-                            <div className="text-xs text-gray-500">
-                              Nursing staff
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                      <SelectItem value="DOCTOR">Doctor</SelectItem>
+                      <SelectItem value="NURSE">Nurse</SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormDescription>
-                    Choose the user's role in the system
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Active Status */}
             <FormField
               control={form.control}
               name="isActive"
@@ -282,9 +190,9 @@ export function EditUserDialog({
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Active Status</FormLabel>
-                    <FormDescription>
-                      User can log in and access the system
-                    </FormDescription>
+                    <div className="text-sm text-muted-foreground">
+                      User can log in when active
+                    </div>
                   </div>
                   <FormControl>
                     <Switch
@@ -301,7 +209,7 @@ export function EditUserDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => setOpen(false)}
                 disabled={isLoading}
               >
                 Cancel

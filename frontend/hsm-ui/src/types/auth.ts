@@ -2,6 +2,11 @@
 
 export type Role = "ADMIN" | "DOCTOR" | "NURSE";
 
+export enum Roles {
+  ADMIN = 'ADMIN',
+  DOCTOR = 'DOCTOR',
+  NURSE = 'NURSE',
+}
 export interface User {
   id: string;
   username: string;

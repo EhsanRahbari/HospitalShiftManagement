@@ -1,7 +1,7 @@
 import { Role } from '../../../generated/client';
 
 export class AuthResponseDto {
-  accessToken!: string;
+  access_token!: string;
   user!: {
     id: string;
     username: string;
