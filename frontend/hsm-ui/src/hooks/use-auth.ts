@@ -1,45 +1,68 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { useAuthStore } from "@/store/auth-store";
-import { authApi } from "@/lib/api/auth";
-import { LoginRequest } from "@/types/auth";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export function useAuth() {
   const router = useRouter();
-  const { user, token, isAuthenticated, setAuth, clearAuth } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(false);
+  const { setAuth, clearAuth } = useAuthStore();
 
-  const login = async (credentials: LoginRequest) => {
-    setIsLoading(true);
+  const login = async (username: string, password: string) => {
     try {
-      const response = await authApi.login(credentials);
-      setAuth(response.user, response.accessToken);
+      console.log("🔵 Attempting login...");
+
+      const response = await fetch("http://localhost:3001/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      console.log("🔵 Response status:", response.status);
+
+      const data = await response.json();
+      console.log("🔵 Response data:", data);
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      // Backend returns 'accessToken' not 'token'
+      if (!data.user || !data.accessToken) {
+        throw new Error("No user or token received from server");
+      }
+
+      console.log("🔵 Setting auth with user and token");
+      setAuth(data.user, data.accessToken); // Use accessToken here
+
       toast.success("Login successful!");
-      router.push("/dashboard"); // ✅ Updated path
-      return response;
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 100);
+
+      return data;
     } catch (error: any) {
-      const message = error.message || "Invalid credentials";
-      toast.error(message);
+      console.error("🔴 Login error:", error);
+      toast.error(error.message || "Login failed");
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    clearAuth();
-    router.push("/auth/login"); // ✅ Updated path
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      clearAuth();
+      toast.success("Logged out successfully");
+      router.push("/auth/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Logout failed");
+    }
   };
 
   return {
-    user,
-    token,
-    isAuthenticated,
-    isLoading,
     login,
     logout,
   };
