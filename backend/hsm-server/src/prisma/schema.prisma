@@ -31,12 +31,11 @@ enum Role {
 
 model User {
   id        String   @id @default(uuid())
-  username  String   @unique //loging identifier
+  username  String   @unique
   password  String
   role      Role     @default(NURSE)
   isActive  Boolean  @default(true)
   shifts    Shift[]
-  //timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -44,10 +43,15 @@ model User {
   createdById String?
   createdBy   User?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  // Reverse Relation:Users this admin created
+  // Reverse Relation: Users this admin created
   createdUsers User[] @relation("UserCreator")
 
-  //map to table name (postgresql convention:plural lowercase)
+  // ⬇️ ADD THESE NEW RELATIONS ⬇️
+  // Convention relations
+  userConventions     UserConvention[] // Conventions assigned to this user
+  createdConventions  Convention[]     @relation("ConventionCreator") // Conventions this admin created
+  assignedConventions UserConvention[] @relation("ConventionAssigner") // Convention assignments this admin made
+
   @@map("users")
 }
 
@@ -81,4 +85,55 @@ enum ShiftStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+}
+
+// Convention Types Enum
+enum ConventionType {
+  AVAILABILITY // Limited availability (e.g., student schedule)
+  RESTRICTION // Cannot work certain shifts (e.g., no night shifts)
+  LEGAL // Legal constraints (e.g., max hours)
+  MEDICAL // Medical reasons (e.g., cannot lift heavy)
+  CUSTOM // Custom admin-defined conventions
+}
+
+// Convention Model
+model Convention {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  type        ConventionType @default(CUSTOM)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Audit Trail: Track who created this convention
+  createdById String?
+  createdBy   User?   @relation("ConventionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Many-to-many relationship with users
+  userConventions UserConvention[]
+
+  @@map("conventions")
+}
+
+// Join table for User-Convention many-to-many relationship
+model UserConvention {
+  id           String   @id @default(uuid())
+  userId       String
+  conventionId String
+  assignedAt   DateTime @default(now())
+
+  // Audit Trail: Track who assigned this convention
+  assignedById String?
+  assignedBy   User?   @relation("ConventionAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  convention Convention @relation(fields: [conventionId], references: [id], onDelete: Cascade)
+
+  // Prevent duplicate assignments
+  @@unique([userId, conventionId])
+  @@index([userId])
+  @@index([conventionId])
+  @@map("user_conventions")
 }
