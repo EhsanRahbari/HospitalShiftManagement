@@ -21,6 +21,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  FileText,
 } from "lucide-react";
 
 export function AppSidebar() {
@@ -48,6 +49,11 @@ export function AppSidebar() {
       title: "Shifts Management",
       url: "/dashboard/shifts",
       icon: Calendar,
+    },
+    {
+      title: "Conventions",
+      url: "/dashboard/conventions",
+      icon: FileText,
     },
     {
       title: "Settings",
