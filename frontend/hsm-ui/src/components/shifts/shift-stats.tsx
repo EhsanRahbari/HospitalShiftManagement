@@ -1,49 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect } from "react";
+import { useShifts } from "@/hooks/use-shifts";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuthStore } from "@/store/auth-store";
-import { getShiftStats } from "@/lib/api/shifts";
-import { ShiftStats } from "@/types/shift";
-import { Calendar, CheckCircle2, XCircle, Clock } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertCircle,
+  Briefcase,
+  PhoneCall,
+  AlertTriangle,
+} from "lucide-react";
 
-export function ShiftStatsCards() {
-  const [stats, setStats] = useState<ShiftStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { token } = useAuthStore();
+export function ShiftStats() {
+  const { stats, isLoading, fetchStats } = useShifts();
 
   useEffect(() => {
-    if (token) {
-      fetchStats();
-    }
-  }, [token]);
+    fetchStats();
+  }, [fetchStats]);
 
-  const fetchStats = async () => {
-    try {
-      setLoading(true);
-      if (!token) return;
-
-      const data = await getShiftStats(token);
-      setStats(data);
-    } catch (error) {
-      console.error("Failed to fetch shift stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-[100px]" />
+              <Skeleton className="h-4 w-4 rounded-full" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-8 w-[60px] mb-2" />
+              <Skeleton className="h-3 w-[120px]" />
             </CardContent>
           </Card>
         ))}
@@ -51,49 +47,119 @@ export function ShiftStatsCards() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return null;
+  }
+
+  const statusCards = [
+    {
+      title: "Total Shifts",
+      value: stats.total,
+      description: "All shifts in the system",
+      icon: Calendar,
+      color: "text-blue-600",
+    },
+    {
+      title: "Scheduled",
+      value: stats.scheduled,
+      description: "Upcoming shifts",
+      icon: Clock,
+      color: "text-green-600",
+    },
+    {
+      title: "Completed",
+      value: stats.completed,
+      description: "Finished shifts",
+      icon: CheckCircle2,
+      color: "text-purple-600",
+    },
+    {
+      title: "Cancelled",
+      value: stats.cancelled,
+      description: "Cancelled shifts",
+      icon: XCircle,
+      color: "text-red-600",
+    },
+  ];
+
+  const typeCards = [
+    {
+      title: "Regular",
+      value: stats.byType.regular,
+      icon: Briefcase,
+      color: "text-blue-600",
+    },
+    {
+      title: "Overtime",
+      value: stats.byType.overtime,
+      icon: Clock,
+      color: "text-orange-600",
+    },
+    {
+      title: "On Call",
+      value: stats.byType.onCall,
+      icon: PhoneCall,
+      color: "text-purple-600",
+    },
+    {
+      title: "Emergency",
+      value: stats.byType.emergency,
+      icon: AlertTriangle,
+      color: "text-red-600",
+    },
+  ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Shifts</CardTitle>
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.total}</div>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Status Cards */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Shift Status</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {statusCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Card key={card.title}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {card.title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 ${card.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{card.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {card.description}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
-          <Clock className="h-4 w-4 text-blue-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.scheduled}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          <CheckCircle2 className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.completed}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
-          <XCircle className="h-4 w-4 text-red-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.cancelled}</div>
-        </CardContent>
-      </Card>
+      {/* Type Cards */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">Scheduled by Type</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {typeCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Card key={card.title}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {card.title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 ${card.color}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{card.value}</div>
+                  <p className="text-xs text-muted-foreground">Active shifts</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

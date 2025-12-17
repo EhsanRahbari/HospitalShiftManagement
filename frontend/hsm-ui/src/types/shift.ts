@@ -23,7 +23,7 @@ export interface Shift {
   status: ShiftStatus;
   createdAt: string;
   updatedAt: string;
-  user?: {
+  user: {
     id: string;
     username: string;
     role: string;
@@ -35,4 +35,31 @@ export interface ShiftStats {
   scheduled: number;
   completed: number;
   cancelled: number;
+  noShow: number;
+  byType: {
+    regular: number;
+    overtime: number;
+    onCall: number;
+    emergency: number;
+  };
+}
+
+export interface CreateShiftData {
+  userId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  shiftType: ShiftType;
+  status?: ShiftStatus;
+}
+
+export interface UpdateShiftData {
+  userId?: string;
+  title?: string;
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+  shiftType?: ShiftType;
+  status?: ShiftStatus;
 }

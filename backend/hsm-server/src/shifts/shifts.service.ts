@@ -1,33 +1,81 @@
 import {
   Injectable,
   NotFoundException,
+  BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { QueryShiftDto } from './dto/query-shift.dto';
-import { Role } from '../../generated/client';
+import { Role, ShiftStatus, ShiftType } from '../../generated/client';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createShiftDto: CreateShiftDto) {
-    // Verify user exists
+    const { startTime, endTime, userId, ...rest } = createShiftDto;
+
+    // Validate time range
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+
+    if (start >= end) {
+      throw new BadRequestException('End time must be after start time');
+    }
+
+    // Verify user exists and is staff (DOCTOR or NURSE)
     const user = await this.prisma.user.findUnique({
-      where: { id: createShiftDto.userId },
+      where: { id: userId },
+      select: { id: true, username: true, role: true, isActive: true },
     });
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    return this.prisma.shift.create({
+    if (!user.isActive) {
+      throw new BadRequestException('Cannot assign shift to inactive user');
+    }
+
+    if (user.role === Role.ADMIN) {
+      throw new BadRequestException('Cannot assign shifts to admin users');
+    }
+
+    // Check for overlapping shifts
+    const overlapping = await this.prisma.shift.findFirst({
+      where: {
+        userId,
+        status: { not: ShiftStatus.CANCELLED },
+        OR: [
+          {
+            AND: [{ startTime: { lte: start } }, { endTime: { gt: start } }],
+          },
+          {
+            AND: [{ startTime: { lt: end } }, { endTime: { gte: end } }],
+          },
+          {
+            AND: [{ startTime: { gte: start } }, { endTime: { lte: end } }],
+          },
+        ],
+      },
+    });
+
+    if (overlapping) {
+      throw new BadRequestException(
+        `User already has a shift scheduled during this time (${overlapping.title})`,
+      );
+    }
+
+    const shift = await this.prisma.shift.create({
       data: {
-        ...createShiftDto,
-        startTime: new Date(createShiftDto.startTime),
-        endTime: new Date(createShiftDto.endTime),
+        ...rest,
+        userId,
+        startTime: start,
+        endTime: end,
+        shiftType: rest.shiftType || ShiftType.REGULAR,
+        status: rest.status || ShiftStatus.SCHEDULED,
       },
       include: {
         user: {
@@ -39,45 +87,63 @@ export class ShiftsService {
         },
       },
     });
+
+    console.log('✅ Shift created:', shift.title, 'for', user.username);
+
+    return shift;
   }
 
-  async findAll(query: QueryShiftDto, requestUserId: string, userRole: Role) {
-    const { userId, startDate, endDate, shiftType, status, page, limit } =
-      query;
+  async findAll(
+    query: QueryShiftDto,
+    requestUserId: string,
+    requestUserRole: Role,
+  ) {
+    const {
+      page = 1,
+      limit = 10,
+      userId,
+      status,
+      shiftType,
+      startDate,
+      endDate,
+    } = query;
+    const skip = (page - 1) * limit;
 
+    // Build where clause
     const where: any = {};
 
-    // If user is not admin, they can only see their own shifts
-    if (userRole !== Role.ADMIN) {
+    // Non-admin users can only see their own shifts
+    if (requestUserRole !== Role.ADMIN) {
       where.userId = requestUserId;
     } else if (userId) {
       // Admin can filter by userId
       where.userId = userId;
     }
 
-    if (shiftType) {
-      where.shiftType = shiftType;
-    }
-
     if (status) {
       where.status = status;
     }
 
-    // Date range filter
+    if (shiftType) {
+      where.shiftType = shiftType;
+    }
+
     if (startDate || endDate) {
-      where.startTime = {};
+      where.AND = [];
+
       if (startDate) {
-        where.startTime.gte = new Date(startDate);
+        where.AND.push({ startTime: { gte: new Date(startDate) } });
       }
+
       if (endDate) {
-        where.startTime.lte = new Date(endDate);
+        where.AND.push({ endTime: { lte: new Date(endDate) } });
       }
     }
 
-    const skip = (page - 1) * limit;
-
-    const [data, total] = await Promise.all([
+    const [shifts, total] = await Promise.all([
       this.prisma.shift.findMany({
+        skip,
+        take: limit,
         where,
         include: {
           user: {
@@ -91,14 +157,14 @@ export class ShiftsService {
         orderBy: {
           startTime: 'asc',
         },
-        skip,
-        take: limit,
       }),
       this.prisma.shift.count({ where }),
     ]);
 
+    console.log(`📋 Found ${shifts.length} shifts out of ${total} total`);
+
     return {
-      data,
+      data: shifts,
       meta: {
         total,
         page,
@@ -108,7 +174,43 @@ export class ShiftsService {
     };
   }
 
-  async findOne(id: string, requestUserId: string, userRole: Role) {
+  async getMyShifts(userId: string, startDate?: string, endDate?: string) {
+    const where: any = { userId };
+
+    if (startDate || endDate) {
+      where.AND = [];
+
+      if (startDate) {
+        where.AND.push({ startTime: { gte: new Date(startDate) } });
+      }
+
+      if (endDate) {
+        where.AND.push({ endTime: { lte: new Date(endDate) } });
+      }
+    }
+
+    const shifts = await this.prisma.shift.findMany({
+      where,
+      orderBy: {
+        startTime: 'asc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    console.log(`📅 Found ${shifts.length} shifts for user`);
+
+    return shifts;
+  }
+
+  async findOne(id: string, requestUserId: string, requestUserRole: Role) {
     const shift = await this.prisma.shift.findUnique({
       where: { id },
       include: {
@@ -123,12 +225,12 @@ export class ShiftsService {
     });
 
     if (!shift) {
-      throw new NotFoundException('Shift not found');
+      throw new NotFoundException(`Shift with ID ${id} not found`);
     }
 
-    // Non-admin users can only see their own shifts
-    if (userRole !== Role.ADMIN && shift.userId !== requestUserId) {
-      throw new ForbiddenException('Access denied');
+    // Non-admin users can only view their own shifts
+    if (requestUserRole !== Role.ADMIN && shift.userId !== requestUserId) {
+      throw new ForbiddenException('You can only view your own shifts');
     }
 
     return shift;
@@ -138,34 +240,87 @@ export class ShiftsService {
     id: string,
     updateShiftDto: UpdateShiftDto,
     requestUserId: string,
-    userRole: Role,
+    requestUserRole: Role,
   ) {
-    const shift = await this.prisma.shift.findUnique({
+    // Check if shift exists
+    const existingShift = await this.prisma.shift.findUnique({
       where: { id },
     });
 
-    if (!shift) {
-      throw new NotFoundException('Shift not found');
+    if (!existingShift) {
+      throw new NotFoundException(`Shift with ID ${id} not found`);
     }
 
     // Only admin can update shifts
-    if (userRole !== Role.ADMIN) {
+    if (requestUserRole !== Role.ADMIN) {
       throw new ForbiddenException('Only admins can update shifts');
     }
 
-    const dataToUpdate: any = { ...updateShiftDto };
+    const { startTime, endTime, userId, ...rest } = updateShiftDto;
 
-    if (updateShiftDto.startTime) {
-      dataToUpdate.startTime = new Date(updateShiftDto.startTime);
+    // Validate time range if both provided
+    const start = startTime ? new Date(startTime) : existingShift.startTime;
+    const end = endTime ? new Date(endTime) : existingShift.endTime;
+
+    if (start >= end) {
+      throw new BadRequestException('End time must be after start time');
     }
 
-    if (updateShiftDto.endTime) {
-      dataToUpdate.endTime = new Date(updateShiftDto.endTime);
+    // Check if user exists if userId is provided
+    if (userId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, role: true, isActive: true },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (!user.isActive) {
+        throw new BadRequestException('Cannot assign shift to inactive user');
+      }
+
+      if (user.role === Role.ADMIN) {
+        throw new BadRequestException('Cannot assign shifts to admin users');
+      }
+
+      // Check for overlapping shifts (excluding current shift)
+      const overlapping = await this.prisma.shift.findFirst({
+        where: {
+          id: { not: id },
+          userId,
+          status: { not: ShiftStatus.CANCELLED },
+          OR: [
+            {
+              AND: [{ startTime: { lte: start } }, { endTime: { gt: start } }],
+            },
+            {
+              AND: [{ startTime: { lt: end } }, { endTime: { gte: end } }],
+            },
+            {
+              AND: [{ startTime: { gte: start } }, { endTime: { lte: end } }],
+            },
+          ],
+        },
+      });
+
+      if (overlapping) {
+        throw new BadRequestException(
+          `User already has a shift scheduled during this time (${overlapping.title})`,
+        );
+      }
     }
 
-    return this.prisma.shift.update({
+    const updateData: any = { ...rest };
+
+    if (startTime) updateData.startTime = start;
+    if (endTime) updateData.endTime = end;
+    if (userId) updateData.userId = userId;
+
+    const shift = await this.prisma.shift.update({
       where: { id },
-      data: dataToUpdate,
+      data: updateData,
       include: {
         user: {
           select: {
@@ -176,65 +331,92 @@ export class ShiftsService {
         },
       },
     });
+
+    console.log('✅ Shift updated:', shift.title);
+
+    return shift;
   }
 
-  async remove(id: string, userRole: Role) {
+  async remove(id: string, requestUserRole: Role) {
+    // Check if shift exists
     const shift = await this.prisma.shift.findUnique({
       where: { id },
     });
 
     if (!shift) {
-      throw new NotFoundException('Shift not found');
+      throw new NotFoundException(`Shift with ID ${id} not found`);
     }
 
     // Only admin can delete shifts
-    if (userRole !== Role.ADMIN) {
+    if (requestUserRole !== Role.ADMIN) {
       throw new ForbiddenException('Only admins can delete shifts');
     }
 
-    return this.prisma.shift.delete({
+    // Soft delete - set status to CANCELLED
+    const updatedShift = await this.prisma.shift.update({
       where: { id },
-    });
-  }
-
-  async getMyShifts(userId: string, startDate?: string, endDate?: string) {
-    const where: any = {
-      userId,
-    };
-
-    if (startDate || endDate) {
-      where.startTime = {};
-      if (startDate) {
-        where.startTime.gte = new Date(startDate);
-      }
-      if (endDate) {
-        where.startTime.lte = new Date(endDate);
-      }
-    }
-
-    return this.prisma.shift.findMany({
-      where,
-      orderBy: {
-        startTime: 'asc',
+      data: { status: ShiftStatus.CANCELLED },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+          },
+        },
       },
     });
+
+    console.log('✅ Shift cancelled:', updatedShift.title);
+
+    return { message: 'Shift cancelled successfully', shift: updatedShift };
   }
 
   async getStats(userId?: string) {
     const where = userId ? { userId } : {};
 
-    const [total, scheduled, completed, cancelled] = await Promise.all([
+    const [total, scheduled, completed, cancelled, noShow] = await Promise.all([
       this.prisma.shift.count({ where }),
-      this.prisma.shift.count({ where: { ...where, status: 'SCHEDULED' } }),
-      this.prisma.shift.count({ where: { ...where, status: 'COMPLETED' } }),
-      this.prisma.shift.count({ where: { ...where, status: 'CANCELLED' } }),
+      this.prisma.shift.count({
+        where: { ...where, status: ShiftStatus.SCHEDULED },
+      }),
+      this.prisma.shift.count({
+        where: { ...where, status: ShiftStatus.COMPLETED },
+      }),
+      this.prisma.shift.count({
+        where: { ...where, status: ShiftStatus.CANCELLED },
+      }),
+      this.prisma.shift.count({
+        where: { ...where, status: ShiftStatus.NO_SHOW },
+      }),
     ]);
 
-    return {
+    const byType = await this.prisma.shift.groupBy({
+      by: ['shiftType'],
+      _count: true,
+      where: { ...where, status: ShiftStatus.SCHEDULED },
+    });
+
+    const stats = {
       total,
       scheduled,
       completed,
       cancelled,
+      noShow,
+      byType: {
+        regular:
+          byType.find((t) => t.shiftType === ShiftType.REGULAR)?._count || 0,
+        overtime:
+          byType.find((t) => t.shiftType === ShiftType.OVERTIME)?._count || 0,
+        onCall:
+          byType.find((t) => t.shiftType === ShiftType.ON_CALL)?._count || 0,
+        emergency:
+          byType.find((t) => t.shiftType === ShiftType.EMERGENCY)?._count || 0,
+      },
     };
+
+    console.log('📊 Stats calculated:', stats);
+
+    return stats;
   }
 }
