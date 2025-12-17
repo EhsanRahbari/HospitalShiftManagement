@@ -8,6 +8,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { UsersModule } from './users/users.module';
 import { ShiftsModule } from './shifts/shifts.module';
+import { ConventionsModule } from './conventions/conventions.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ShiftsModule } from './shifts/shifts.module';
     AuthModule,
     UsersModule,
     ShiftsModule,
+    ConventionsModule,
   ],
   controllers: [AppController],
   providers: [
