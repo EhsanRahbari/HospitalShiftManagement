@@ -38,6 +38,7 @@ interface UsersState {
   error: string | null;
   fetchUsers: (page?: number, limit?: number) => Promise<void>;
   fetchStats: () => Promise<void>;
+  getUser: (id: string) => Promise<User>; // ⬅️ NEW
   createUser: (userData: Partial<User>) => Promise<void>;
   updateUser: (id: string, userData: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
@@ -137,10 +138,48 @@ export const useUsers = create<UsersState>((set, get) => ({
     }
   },
 
+  // ⬇️ NEW: Get single user by ID
+  getUser: async (id: string) => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        console.log("❌ No token available for getUser");
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching single user:", id);
+
+      const response = await fetch(`${API_URL}/users/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("🔵 Get user response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("❌ Get user error:", errorData);
+        throw new Error(errorData.message || "Failed to fetch user");
+      }
+
+      const user: User = await response.json();
+      console.log("✅ User data:", user);
+
+      return user;
+    } catch (error: any) {
+      console.error("❌ Error fetching user:", error);
+      throw error;
+    }
+  },
+
   createUser: async (userData) => {
     try {
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
+
+      console.log("🔵 Creating user:", userData);
 
       const response = await fetch(`${API_URL}/users`, {
         method: "POST",
@@ -151,13 +190,18 @@ export const useUsers = create<UsersState>((set, get) => ({
         body: JSON.stringify(userData),
       });
 
+      console.log("🔵 Create user response status:", response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("❌ Create user error:", errorData);
         throw new Error(errorData.message || "Failed to create user");
       }
 
+      console.log("✅ User created successfully");
       await get().fetchUsers();
     } catch (error: any) {
+      console.error("❌ Error creating user:", error);
       set({ error: error.message });
       throw error;
     }
@@ -168,6 +212,8 @@ export const useUsers = create<UsersState>((set, get) => ({
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
+      console.log("🔵 Updating user:", id, userData);
+
       const response = await fetch(`${API_URL}/users/${id}`, {
         method: "PATCH",
         headers: {
@@ -177,13 +223,18 @@ export const useUsers = create<UsersState>((set, get) => ({
         body: JSON.stringify(userData),
       });
 
+      console.log("🔵 Update user response status:", response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("❌ Update user error:", errorData);
         throw new Error(errorData.message || "Failed to update user");
       }
 
+      console.log("✅ User updated successfully");
       await get().fetchUsers();
     } catch (error: any) {
+      console.error("❌ Error updating user:", error);
       set({ error: error.message });
       throw error;
     }
@@ -194,6 +245,8 @@ export const useUsers = create<UsersState>((set, get) => ({
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
+      console.log("🔵 Deleting user:", id);
+
       const response = await fetch(`${API_URL}/users/${id}`, {
         method: "DELETE",
         headers: {
@@ -201,13 +254,18 @@ export const useUsers = create<UsersState>((set, get) => ({
         },
       });
 
+      console.log("🔵 Delete user response status:", response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("❌ Delete user error:", errorData);
         throw new Error(errorData.message || "Failed to delete user");
       }
 
+      console.log("✅ User deleted successfully");
       await get().fetchUsers();
     } catch (error: any) {
+      console.error("❌ Error deleting user:", error);
       set({ error: error.message });
       throw error;
     }

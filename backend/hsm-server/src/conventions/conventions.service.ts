@@ -439,4 +439,244 @@ export class ConventionsService {
 
     return stats;
   }
+  // ==================== USER CONVENTION SELECTION ====================
+
+  /**
+   * Get all active conventions available for user selection
+   */
+  async getAvailableConventions() {
+    const conventions = await this.prisma.convention.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: [{ type: 'asc' }, { title: 'asc' }],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    console.log(
+      `📋 Found ${conventions.length} available conventions for user selection`,
+    );
+
+    return conventions;
+  }
+
+  /**
+   * Get conventions selected by the current user (both admin-assigned and user-selected)
+   */
+  async getMyConventions(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const assignments = await this.prisma.userConvention.findMany({
+      where: { userId },
+      include: {
+        convention: true,
+        assignedBy: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: [
+        { selectionType: 'asc' }, // ADMIN_ASSIGNED first
+        { assignedAt: 'desc' },
+      ],
+    });
+
+    console.log(
+      `📋 Found ${assignments.length} conventions for user ${user.username}`,
+    );
+
+    return assignments;
+  }
+
+  /**
+   * User selects conventions for themselves
+   */
+  async selectConventionsForSelf(userId: string, conventionIds: string[]) {
+    // Verify user exists and is active
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, username: true, role: true, isActive: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new BadRequestException(
+        'Your account is inactive. Please contact an administrator.',
+      );
+    }
+
+    if (user.role === Role.ADMIN) {
+      throw new BadRequestException(
+        'Admin users cannot select conventions for themselves. Use admin assignment instead.',
+      );
+    }
+
+    // Verify all conventions exist and are active
+    const conventions = await this.prisma.convention.findMany({
+      where: {
+        id: { in: conventionIds },
+      },
+    });
+
+    if (conventions.length !== conventionIds.length) {
+      throw new NotFoundException('One or more conventions not found');
+    }
+
+    const inactiveConventions = conventions.filter((c) => !c.isActive);
+    if (inactiveConventions.length > 0) {
+      throw new BadRequestException(
+        `Cannot select inactive conventions: ${inactiveConventions.map((c) => c.title).join(', ')}`,
+      );
+    }
+
+    // Check for existing assignments
+    const existingAssignments = await this.prisma.userConvention.findMany({
+      where: {
+        userId,
+        conventionId: { in: conventionIds },
+      },
+    });
+
+    const existingConventionIds = existingAssignments.map(
+      (a) => a.conventionId,
+    );
+    const newConventionIds = conventionIds.filter(
+      (id) => !existingConventionIds.includes(id),
+    );
+
+    if (newConventionIds.length === 0) {
+      throw new BadRequestException(
+        'All selected conventions are already assigned to you',
+      );
+    }
+
+    // Create new user selections
+    const assignments = await this.prisma.$transaction(
+      newConventionIds.map((conventionId) =>
+        this.prisma.userConvention.create({
+          data: {
+            userId,
+            conventionId,
+            selectionType: 'USER_SELECTED',
+            assignedById: userId, // User assigned to themselves
+          },
+          include: {
+            convention: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                role: true,
+              },
+            },
+          },
+        }),
+      ),
+    );
+
+    console.log(
+      `✅ User ${user.username} selected ${assignments.length} conventions`,
+    );
+
+    return assignments;
+  }
+
+  /**
+   * User removes their own selected convention
+   * Cannot remove admin-assigned conventions
+   */
+  async removeMyConvention(userId: string, conventionId: string) {
+    // Verify assignment exists
+    const assignment = await this.prisma.userConvention.findFirst({
+      where: {
+        userId,
+        conventionId,
+      },
+      include: {
+        convention: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Convention assignment not found');
+    }
+
+    // Check if user is trying to remove admin-assigned convention
+    if (assignment.selectionType === 'ADMIN_ASSIGNED') {
+      throw new ForbiddenException(
+        `Cannot remove admin-assigned convention "${assignment.convention.title}". Please contact an administrator.`,
+      );
+    }
+
+    // Delete the assignment
+    await this.prisma.userConvention.delete({
+      where: {
+        id: assignment.id,
+      },
+    });
+
+    console.log(
+      `✅ User ${assignment.user.username} removed convention "${assignment.convention.title}"`,
+    );
+
+    return {
+      message: 'Convention removed successfully',
+      convention: assignment.convention,
+    };
+  }
+
+  /**
+   * Get statistics about user convention selections
+   */
+  async getUserConventionStats(userId: string) {
+    const [total, adminAssigned, userSelected] = await Promise.all([
+      this.prisma.userConvention.count({
+        where: { userId },
+      }),
+      this.prisma.userConvention.count({
+        where: {
+          userId,
+          selectionType: 'ADMIN_ASSIGNED',
+        },
+      }),
+      this.prisma.userConvention.count({
+        where: {
+          userId,
+          selectionType: 'USER_SELECTED',
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      adminAssigned,
+      userSelected,
+    };
+  }
 }

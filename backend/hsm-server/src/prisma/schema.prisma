@@ -25,6 +25,12 @@ enum Role {
   NURSE // Nursing Staff, assigned to shifts
 }
 
+// Selection Type Enum
+enum SelectionType {
+  ADMIN_ASSIGNED  // Admin assigned to user (mandatory)
+  USER_SELECTED   // User selected themselves (preference)
+}
+
 //============================
 // MODELS
 //============================
@@ -116,14 +122,20 @@ model Convention {
   @@map("conventions")
 }
 
+
 // Join table for User-Convention many-to-many relationship
 model UserConvention {
-  id           String   @id @default(uuid())
+  id           String        @id @default(uuid())
   userId       String
   conventionId String
-  assignedAt   DateTime @default(now())
+  assignedAt   DateTime      @default(now())
+  
+  // NEW: Track selection type
+  selectionType SelectionType @default(USER_SELECTED)
 
   // Audit Trail: Track who assigned this convention
+  // For USER_SELECTED: assignedBy will be the user themselves
+  // For ADMIN_ASSIGNED: assignedBy will be the admin
   assignedById String?
   assignedBy   User?   @relation("ConventionAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
 
@@ -135,5 +147,6 @@ model UserConvention {
   @@unique([userId, conventionId])
   @@index([userId])
   @@index([conventionId])
+  @@index([selectionType])
   @@map("user_conventions")
 }

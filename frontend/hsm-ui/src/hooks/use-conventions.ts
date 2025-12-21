@@ -9,6 +9,7 @@ import {
   UpdateConventionData,
   AssignConventionData,
   UserConvention,
+  UserConventionStats,
 } from "@/types/convention";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
@@ -255,13 +256,14 @@ export const useConventions = create<ConventionsState>((set, get) => ({
 
   assignConventionsToUser: async (
     userId: string,
-    data: AssignConventionData
-  ) => {
+    data: AssignConventionData // ⬅️ Accept the object
+  ): Promise<void> => {
     try {
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
-      console.log("🔵 Assigning conventions to user:", userId, data);
+      console.log("🔍 assignConventionsToUser - userId:", userId);
+      console.log("🔍 assignConventionsToUser - data:", data);
 
       const response = await fetch(
         `${API_URL}/conventions/users/${userId}/assign`,
@@ -271,19 +273,21 @@ export const useConventions = create<ConventionsState>((set, get) => ({
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify(data), // ⬅️ Send the whole object
         }
       );
 
+      console.log("📡 Response status:", response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("❌ Error response:", errorData);
         throw new Error(errorData.message || "Failed to assign conventions");
       }
 
       console.log("✅ Conventions assigned successfully");
     } catch (error: any) {
       console.error("❌ Error assigning conventions:", error);
-      set({ error: error.message });
       throw error;
     }
   },
@@ -344,6 +348,171 @@ export const useConventions = create<ConventionsState>((set, get) => ({
       return data;
     } catch (error: any) {
       console.error("❌ Error fetching user conventions:", error);
+      throw error;
+    }
+  },
+  // ==================== USER CONVENTION SELECTION ====================
+
+  getAvailableConventions: async (): Promise<Convention[]> => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching available conventions for selection");
+
+      const response = await fetch(`${API_URL}/conventions/available`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || "Failed to fetch available conventions"
+        );
+      }
+
+      const data: Convention[] = await response.json();
+      console.log("✅ Available conventions:", data);
+
+      return data;
+    } catch (error: any) {
+      console.error("❌ Error fetching available conventions:", error);
+      throw error;
+    }
+  },
+
+  getMyConventions: async (): Promise<UserConvention[]> => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching my conventions");
+
+      const response = await fetch(`${API_URL}/conventions/my-conventions`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch my conventions");
+      }
+
+      const data: UserConvention[] = await response.json();
+      console.log("✅ My conventions:", data);
+
+      return data;
+    } catch (error: any) {
+      console.error("❌ Error fetching my conventions:", error);
+      throw error;
+    }
+  },
+
+  selectConventionsForSelf: async (conventionIds: string[]): Promise<void> => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Selecting conventions:", conventionIds);
+
+      const response = await fetch(
+        `${API_URL}/conventions/my-conventions/select`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ conventionIds }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to select conventions");
+      }
+
+      console.log("✅ Conventions selected successfully");
+    } catch (error: any) {
+      console.error("❌ Error selecting conventions:", error);
+      throw error;
+    }
+  },
+
+  removeMyConvention: async (conventionId: string): Promise<void> => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Removing my convention:", conventionId);
+
+      const response = await fetch(
+        `${API_URL}/conventions/my-conventions/${conventionId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to remove convention");
+      }
+
+      console.log("✅ Convention removed successfully");
+    } catch (error: any) {
+      console.error("❌ Error removing convention:", error);
+      throw error;
+    }
+  },
+
+  getMyConventionStats: async (): Promise<UserConventionStats> => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching my convention stats");
+
+      const response = await fetch(
+        `${API_URL}/conventions/my-conventions/stats`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch stats");
+      }
+
+      const data: UserConventionStats = await response.json();
+      console.log("✅ My convention stats:", data);
+
+      return data;
+    } catch (error: any) {
+      console.error("❌ Error fetching my convention stats:", error);
       throw error;
     }
   },

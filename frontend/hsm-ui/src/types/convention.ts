@@ -6,6 +6,11 @@ export enum ConventionType {
   CUSTOM = "CUSTOM",
 }
 
+export enum SelectionType {
+  ADMIN_ASSIGNED = "ADMIN_ASSIGNED",
+  USER_SELECTED = "USER_SELECTED",
+}
+
 export interface Convention {
   id: string;
   title: string;
@@ -28,6 +33,7 @@ export interface UserConvention {
   userId: string;
   conventionId: string;
   assignedAt: string;
+  selectionType: SelectionType;
   user?: {
     id: string;
     username: string;
@@ -53,6 +59,12 @@ export interface ConventionStats {
   };
 }
 
+export interface UserConventionStats {
+  total: number;
+  adminAssigned: number;
+  userSelected: number;
+}
+
 export interface CreateConventionData {
   title: string;
   description?: string;
@@ -68,5 +80,9 @@ export interface UpdateConventionData {
 }
 
 export interface AssignConventionData {
+  conventionIds: string[];
+}
+
+export interface UserSelectConventionData {
   conventionIds: string[];
 }

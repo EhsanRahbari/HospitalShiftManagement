@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { ShiftCalendar } from "@/components/shifts/shift-calendar";
-import { ShiftStatsCards } from "@/components/shifts/shift-stats";
+import { ShiftStats } from "@/components/shifts/shift-stats";
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -65,7 +65,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <ShiftStatsCards />
+      <ShiftStats />
       <ShiftCalendar />
     </div>
   );
