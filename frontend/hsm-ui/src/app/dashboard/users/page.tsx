@@ -25,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CreateUserDialog } from "@/components/dashboard/create-user-dialog";
 import { EditUserDialog } from "@/components/dashboard/edit-user-dialog";
 import { DeleteUserDialog } from "@/components/dashboard/delete-user-dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 
 export default function UsersPage() {
   const [mounted, setMounted] = useState(false);
@@ -73,6 +73,14 @@ export default function UsersPage() {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1);
     }
+  };
+
+  // ⬇️ NEW: Handle row click to view user details
+  const handleViewUser = (userId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    router.push(`/dashboard/users/${userId}`);
   };
 
   if (!mounted) {
@@ -153,7 +161,11 @@ export default function UsersPage() {
                   </TableHeader>
                   <TableBody>
                     {users.map((user) => (
-                      <TableRow key={user.id}>
+                      <TableRow
+                        key={user.id}
+                        className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => handleViewUser(user.id)}
+                      >
                         <TableCell className="font-medium">
                           {user.username}
                         </TableCell>
@@ -163,8 +175,8 @@ export default function UsersPage() {
                               user.role === "ADMIN"
                                 ? "default"
                                 : user.role === "DOCTOR"
-                                  ? "secondary"
-                                  : "outline"
+                                ? "secondary"
+                                : "outline"
                             }
                           >
                             {user.role}
@@ -181,7 +193,19 @@ export default function UsersPage() {
                           {new Date(user.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div
+                            className="flex justify-end gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* ⬇️ NEW: View Button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleViewUser(user.id, e)}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
                             <EditUserDialog user={user} />
                             <DeleteUserDialog user={user} />
                           </div>

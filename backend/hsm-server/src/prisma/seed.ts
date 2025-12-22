@@ -278,6 +278,63 @@ async function main() {
 
   console.log(`✅ Created ${shifts.length} shifts`);
   console.log('🌱 Seed completed!');
+
+  // ==================== ASSIGN CONVENTIONS TO USERS ====================
+
+  // Assign "Student Schedule" to doctor (ADMIN ASSIGNED)
+  await prisma.userConvention.upsert({
+    where: {
+      userId_conventionId: {
+        userId: doctor.id,
+        conventionId: studentConvention.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: doctor.id,
+      conventionId: studentConvention.id,
+      assignedById: admin.id,
+      selectionType: 'ADMIN_ASSIGNED', // ⬅️ ADD THIS
+    },
+  });
+
+  // Assign "No Night Shifts" to nurse (ADMIN ASSIGNED)
+  await prisma.userConvention.upsert({
+    where: {
+      userId_conventionId: {
+        userId: nurse.id,
+        conventionId: noNightShifts.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: nurse.id,
+      conventionId: noNightShifts.id,
+      assignedById: admin.id,
+      selectionType: 'ADMIN_ASSIGNED', // ⬅️ ADD THIS
+    },
+  });
+
+  // Assign "Max 40 Hours" to nurse (USER SELECTED - nurse selected this themselves)
+  await prisma.userConvention.upsert({
+    where: {
+      userId_conventionId: {
+        userId: nurse.id,
+        conventionId: maxHours.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: nurse.id,
+      conventionId: maxHours.id,
+      assignedById: nurse.id, // ⬅️ Nurse assigned to themselves
+      selectionType: 'USER_SELECTED', // ⬅️ ADD THIS
+    },
+  });
+
+  console.log(
+    '✅ Assigned conventions to users (mixed admin-assigned and user-selected)',
+  );
 }
 
 main()
