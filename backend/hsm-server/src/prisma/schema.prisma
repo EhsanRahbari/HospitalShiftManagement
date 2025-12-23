@@ -1,12 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../../generated/client" // ⬅️ Add this line
+  output   = "../../generated/client"
 }
 
 datasource db {
@@ -14,26 +11,45 @@ datasource db {
 }
 
 // ===============================
-
 // ENUMS
-
 // ===============================
 
 enum Role {
-  ADMIN // Full system access, can create users
-  DOCTOR // Medical staff, manage own shifts
-  NURSE // Nursing Staff, assigned to shifts
+  ADMIN
+  DOCTOR
+  NURSE
 }
 
-// Selection Type Enum
 enum SelectionType {
-  ADMIN_ASSIGNED  // Admin assigned to user (mandatory)
-  USER_SELECTED   // User selected themselves (preference)
+  ADMIN_ASSIGNED
+  USER_SELECTED
 }
 
-//============================
+enum ShiftType {
+  REGULAR
+  OVERTIME
+  ON_CALL
+  EMERGENCY
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ConventionType {
+  AVAILABILITY
+  RESTRICTION
+  LEGAL
+  MEDICAL
+  CUSTOM
+}
+
+// ===============================
 // MODELS
-//============================
+// ===============================
 
 model User {
   id        String   @id @default(uuid())
@@ -41,22 +57,23 @@ model User {
   password  String
   role      Role     @default(NURSE)
   isActive  Boolean  @default(true)
-  shifts    Shift[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Audit Trail: Track who created this user
+  // Audit Trail
   createdById String?
   createdBy   User?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
-
-  // Reverse Relation: Users this admin created
   createdUsers User[] @relation("UserCreator")
 
-  // ⬇️ ADD THESE NEW RELATIONS ⬇️
-  // Convention relations
-  userConventions     UserConvention[] // Conventions assigned to this user
-  createdConventions  Convention[]     @relation("ConventionCreator") // Conventions this admin created
-  assignedConventions UserConvention[] @relation("ConventionAssigner") // Convention assignments this admin made
+  // Relations
+  shifts              Shift[]
+  userConventions     UserConvention[]
+  createdConventions  Convention[]      @relation("ConventionCreator")
+  assignedConventions UserConvention[]  @relation("ConventionAssigner")
+  
+  // ⬇️ NEW: Shift assignments
+  shiftAssignments       ShiftAssignment[]
+  createdShiftAssignments ShiftAssignment[] @relation("AssignmentCreator")
 
   @@map("users")
 }
@@ -74,35 +91,14 @@ model Shift {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
+  // ⬇️ NEW: Assignments relation
+  assignments ShiftAssignment[]
+
   @@index([userId])
   @@index([startTime])
   @@map("shifts")
 }
 
-enum ShiftType {
-  REGULAR
-  OVERTIME
-  ON_CALL
-  EMERGENCY
-}
-
-enum ShiftStatus {
-  SCHEDULED
-  COMPLETED
-  CANCELLED
-  NO_SHOW
-}
-
-// Convention Types Enum
-enum ConventionType {
-  AVAILABILITY // Limited availability (e.g., student schedule)
-  RESTRICTION // Cannot work certain shifts (e.g., no night shifts)
-  LEGAL // Legal constraints (e.g., max hours)
-  MEDICAL // Medical reasons (e.g., cannot lift heavy)
-  CUSTOM // Custom admin-defined conventions
-}
-
-// Convention Model
 model Convention {
   id          String         @id @default(uuid())
   title       String
@@ -112,41 +108,55 @@ model Convention {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  // Audit Trail: Track who created this convention
   createdById String?
   createdBy   User?   @relation("ConventionCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
-  // Many-to-many relationship with users
   userConventions UserConvention[]
 
   @@map("conventions")
 }
 
-
-// Join table for User-Convention many-to-many relationship
 model UserConvention {
   id           String        @id @default(uuid())
   userId       String
   conventionId String
   assignedAt   DateTime      @default(now())
-  
-  // NEW: Track selection type
   selectionType SelectionType @default(USER_SELECTED)
 
-  // Audit Trail: Track who assigned this convention
-  // For USER_SELECTED: assignedBy will be the user themselves
-  // For ADMIN_ASSIGNED: assignedBy will be the admin
   assignedById String?
   assignedBy   User?   @relation("ConventionAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
 
-  // Relations
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   convention Convention @relation(fields: [conventionId], references: [id], onDelete: Cascade)
 
-  // Prevent duplicate assignments
   @@unique([userId, conventionId])
   @@index([userId])
   @@index([conventionId])
   @@index([selectionType])
   @@map("user_conventions")
+}
+
+// ⬇️ NEW: ShiftAssignment Model
+model ShiftAssignment {
+  id        String   @id @default(uuid())
+  userId    String
+  shiftId   String
+  date      DateTime // The specific date this shift is assigned
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Audit Trail: Track who created this assignment
+  createdById String?
+  createdBy   User?   @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  // Allow multiple shifts per day (different shifts)
+  @@unique([userId, shiftId, date])
+  @@index([userId])
+  @@index([shiftId])
+  @@index([date])
+  @@map("shift_assignments")
 }

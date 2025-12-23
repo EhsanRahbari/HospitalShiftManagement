@@ -32,11 +32,17 @@ interface ShiftsState {
   } | null;
   isLoading: boolean;
   error: string | null;
+
+  // Existing methods
   fetchShifts: (page?: number, limit?: number, filters?: any) => Promise<void>;
   fetchStats: (userId?: string) => Promise<void>;
   createShift: (shiftData: CreateShiftData) => Promise<void>;
   updateShift: (id: string, shiftData: UpdateShiftData) => Promise<void>;
   deleteShift: (id: string) => Promise<void>;
+
+  // New methods for shift assignments
+  getAllShifts: () => Promise<Shift[]>;
+  clearError: () => void;
 }
 
 export const useShifts = create<ShiftsState>((set, get) => ({
@@ -97,7 +103,48 @@ export const useShifts = create<ShiftsState>((set, get) => ({
       });
     } catch (error: any) {
       console.error("❌ Error fetching shifts:", error);
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message, isLoading: false, shifts: [] });
+    }
+  },
+
+  // New: Get all shifts without pagination (for dropdowns/selects)
+  getAllShifts: async () => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        console.log("❌ No token available for getAllShifts");
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching all shifts");
+
+      // Fetch with high limit to get all shifts
+      const response = await fetch(`${API_URL}/shifts?page=1&limit=1000`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("🔵 Get all shifts response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch shifts");
+      }
+
+      const data: PaginatedShifts = await response.json();
+      console.log("✅ All shifts fetched:", data.data.length);
+
+      // Update shifts in state but don't override pagination
+      set((state) => ({
+        shifts: data.data || [],
+      }));
+
+      return data.data || [];
+    } catch (error: any) {
+      console.error("❌ Error fetching all shifts:", error);
+      throw error;
     }
   },
 
@@ -144,6 +191,8 @@ export const useShifts = create<ShiftsState>((set, get) => ({
 
   createShift: async (shiftData: CreateShiftData) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -168,15 +217,19 @@ export const useShifts = create<ShiftsState>((set, get) => ({
       // Refresh shifts list
       const { pagination } = get();
       await get().fetchShifts(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error creating shift:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   updateShift: async (id: string, shiftData: UpdateShiftData) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -201,15 +254,19 @@ export const useShifts = create<ShiftsState>((set, get) => ({
       // Refresh shifts list
       const { pagination } = get();
       await get().fetchShifts(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error updating shift:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   deleteShift: async (id: string) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -232,10 +289,14 @@ export const useShifts = create<ShiftsState>((set, get) => ({
       // Refresh shifts list
       const { pagination } = get();
       await get().fetchShifts(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error deleting shift:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
+
+  clearError: () => set({ error: null }),
 }));

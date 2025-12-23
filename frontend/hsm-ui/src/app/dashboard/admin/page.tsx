@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUsers } from "@/hooks/use-users";
 import { useAuthStore } from "@/store/auth-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
   UserCheck,
@@ -12,11 +13,20 @@ import {
   Shield,
   Stethoscope,
   HeartPulse,
+  CalendarClock,
+  LayoutDashboard,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AssignShiftForm } from "@/components/admin/shift-assignments/assign-shift-form";
+import { AssignmentsList } from "@/components/admin/shift-assignments/assignment-list";
+import { AssignmentsCalendar } from "@/components/admin/shift-assignments/assignment-calendar";
+import { BulkAssignForm } from "@/components/admin/shift-assignments/bulk-assign-form";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function AdminDashboardPage() {
   const [mounted, setMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const { stats, fetchStats } = useUsers();
   const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
@@ -70,7 +80,7 @@ export default function AdminDashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-600">Loading statistics...</p>
+          <p className="text-muted-foreground">Loading statistics...</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -93,117 +103,245 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-600">
-          Welcome, {user.username}! System overview and user management
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-gray-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-gray-600">All registered users</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.active}</div>
-            <p className="text-xs text-gray-600">Currently active</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Inactive Users
-            </CardTitle>
-            <UserX className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inactive}</div>
-            <p className="text-xs text-gray-600">Deactivated users</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Administrators
-            </CardTitle>
-            <Shield className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.byRole.admin}</div>
-            <p className="text-xs text-gray-600">Admin accounts</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Doctors</CardTitle>
-            <Stethoscope className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.byRole.doctor}</div>
-            <p className="text-xs text-gray-600">Medical doctors</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nurses</CardTitle>
-            <HeartPulse className="h-4 w-4 text-pink-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.byRole.nurse}</div>
-            <p className="text-xs text-gray-600">Nursing staff</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Users className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.byRole.doctor + stats.byRole.nurse}
-            </div>
-            <p className="text-xs text-gray-600">Medical personnel</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-sm text-gray-600">
-            Navigate to{" "}
-            <a
-              href="/dashboard/users"
-              className="font-medium text-blue-600 hover:underline"
-            >
-              Users
-            </a>{" "}
-            to manage all system users.
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome, {user.username}! Manage users and shift assignments
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/users">
+            <Users className="mr-2 h-4 w-4" />
+            Manage Users
+          </Link>
+        </Button>
+      </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-4"
+      >
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="assign" className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Assign Shift
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Bulk Assign
+          </TabsTrigger>
+          <TabsTrigger value="list" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Assignments
+          </TabsTrigger>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <CalendarClock className="h-4 w-4" />
+            Calendar
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
+          {/* Statistics Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Users
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <p className="text-xs text-muted-foreground">
+                  All registered users
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Users
+                </CardTitle>
+                <UserCheck className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.active}</div>
+                <p className="text-xs text-muted-foreground">
+                  Currently active
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Inactive Users
+                </CardTitle>
+                <UserX className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.inactive}</div>
+                <p className="text-xs text-muted-foreground">
+                  Deactivated users
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Administrators
+                </CardTitle>
+                <Shield className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.byRole.admin}</div>
+                <p className="text-xs text-muted-foreground">Admin accounts</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Role Distribution */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Doctors</CardTitle>
+                <Stethoscope className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.byRole.doctor}</div>
+                <p className="text-xs text-muted-foreground">Medical doctors</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Nurses</CardTitle>
+                <HeartPulse className="h-4 w-4 text-pink-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.byRole.nurse}</div>
+                <p className="text-xs text-muted-foreground">Nursing staff</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Staff
+                </CardTitle>
+                <Users className="h-4 w-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {stats.byRole.doctor + stats.byRole.nurse}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Medical personnel
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <Button
+                asChild
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+              >
+                <Link href="/dashboard/users">
+                  <Users className="h-6 w-6 mb-2" />
+                  <div className="text-left">
+                    <div className="font-semibold">Manage Users</div>
+                    <div className="text-xs text-muted-foreground">
+                      Create, edit, and deactivate users
+                    </div>
+                  </div>
+                </Link>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+                onClick={() => setActiveTab("assign")}
+              >
+                <CalendarClock className="h-6 w-6 mb-2" />
+                <div className="text-left">
+                  <div className="font-semibold">Assign Shifts</div>
+                  <div className="text-xs text-muted-foreground">
+                    Assign shifts to users with convention validation
+                  </div>
+                </div>
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+              >
+                <Link href="/dashboard/shifts">
+                  <CalendarClock className="h-6 w-6 mb-2" />
+                  <div className="text-left">
+                    <div className="font-semibold">Manage Shifts</div>
+                    <div className="text-xs text-muted-foreground">
+                      Create and edit shift templates
+                    </div>
+                  </div>
+                </Link>
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+              >
+                <Link href="/dashboard/conventions">
+                  <Shield className="h-6 w-6 mb-2" />
+                  <div className="text-left">
+                    <div className="font-semibold">Manage Conventions</div>
+                    <div className="text-xs text-muted-foreground">
+                      Set up work restrictions and rules
+                    </div>
+                  </div>
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Assign Shift Tab */}
+        <TabsContent value="assign" className="space-y-4">
+          <AssignShiftForm />
+        </TabsContent>
+
+        {/* Bulk Assign Tab */}
+        <TabsContent value="bulk" className="space-y-4">
+          <BulkAssignForm />
+        </TabsContent>
+
+        {/* Assignments List Tab */}
+        <TabsContent value="list" className="space-y-4">
+          <AssignmentsList />
+        </TabsContent>
+
+        {/* Calendar View Tab */}
+        <TabsContent value="calendar" className="space-y-4">
+          <AssignmentsCalendar />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
