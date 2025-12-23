@@ -36,12 +36,17 @@ interface UsersState {
   } | null;
   isLoading: boolean;
   error: string | null;
+
   fetchUsers: (page?: number, limit?: number) => Promise<void>;
   fetchStats: () => Promise<void>;
-  getUser: (id: string) => Promise<User>; // ⬅️ NEW
+  getUser: (id: string) => Promise<User>;
   createUser: (userData: Partial<User>) => Promise<void>;
   updateUser: (id: string, userData: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+
+  // New methods for shift assignments
+  getAllUsers: () => Promise<User[]>;
+  clearError: () => void;
 }
 
 export const useUsers = create<UsersState>((set, get) => ({
@@ -96,7 +101,48 @@ export const useUsers = create<UsersState>((set, get) => ({
       });
     } catch (error: any) {
       console.error("❌ Error fetching users:", error);
-      set({ error: error.message, isLoading: false });
+      set({ error: error.message, isLoading: false, users: [] });
+    }
+  },
+
+  // New: Get all users without pagination (for dropdowns/selects)
+  getAllUsers: async () => {
+    try {
+      const { token } = useAuthStore.getState();
+
+      if (!token) {
+        console.log("❌ No token available for getAllUsers");
+        throw new Error("No authentication token");
+      }
+
+      console.log("🔵 Fetching all users");
+
+      // Fetch with high limit to get all users
+      const response = await fetch(`${API_URL}/users?page=1&limit=1000`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("🔵 Get all users response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch users");
+      }
+
+      const data: PaginatedUsers = await response.json();
+      console.log("✅ All users fetched:", data.data.length);
+
+      // Update users in state but don't override pagination
+      set((state) => ({
+        users: data.data,
+      }));
+
+      return data.data;
+    } catch (error: any) {
+      console.error("❌ Error fetching all users:", error);
+      throw error;
     }
   },
 
@@ -138,7 +184,6 @@ export const useUsers = create<UsersState>((set, get) => ({
     }
   },
 
-  // ⬇️ NEW: Get single user by ID
   getUser: async (id: string) => {
     try {
       const { token } = useAuthStore.getState();
@@ -176,6 +221,8 @@ export const useUsers = create<UsersState>((set, get) => ({
 
   createUser: async (userData) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -199,16 +246,22 @@ export const useUsers = create<UsersState>((set, get) => ({
       }
 
       console.log("✅ User created successfully");
-      await get().fetchUsers();
+
+      const { pagination } = get();
+      await get().fetchUsers(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error creating user:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   updateUser: async (id, userData) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -232,16 +285,22 @@ export const useUsers = create<UsersState>((set, get) => ({
       }
 
       console.log("✅ User updated successfully");
-      await get().fetchUsers();
+
+      const { pagination } = get();
+      await get().fetchUsers(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error updating user:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   deleteUser: async (id) => {
     try {
+      set({ isLoading: true, error: null });
+
       const { token } = useAuthStore.getState();
       if (!token) throw new Error("No authentication token");
 
@@ -263,11 +322,17 @@ export const useUsers = create<UsersState>((set, get) => ({
       }
 
       console.log("✅ User deleted successfully");
-      await get().fetchUsers();
+
+      const { pagination } = get();
+      await get().fetchUsers(pagination?.page || 1);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error("❌ Error deleting user:", error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
+
+  clearError: () => set({ error: null }),
 }));

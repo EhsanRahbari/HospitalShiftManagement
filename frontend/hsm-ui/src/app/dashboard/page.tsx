@@ -1,72 +1,113 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
-import { ShiftCalendar } from "@/components/shifts/shift-calendar";
-import { ShiftStats } from "@/components/shifts/shift-stats";
+import { redirect } from "next/navigation";
+import { ShiftCalendar } from "@/components/calendar/shift-calendar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useShifts } from "@/hooks/use-shifts";
+import { useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DashboardPage() {
-  const [mounted, setMounted] = useState(false);
+export default function UserDashboardPage() {
   const { user, isAuthenticated } = useAuthStore();
-  const router = useRouter();
+  const { stats, fetchStats, isLoading } = useShifts();
+
+  console.log("🔍 User Dashboard Check:", {
+    isAuthenticated,
+    username: user?.username,
+    role: user?.role,
+    userId: user?.id,
+  });
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (!isAuthenticated) {
+      console.log("❌ Not authenticated, redirecting to login");
+      redirect("/login");
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!mounted) return;
-
-    console.log("🔍 User Dashboard Check:", {
-      isAuthenticated,
-      username: user?.username,
-      role: user?.role,
-    });
-
-    if (!isAuthenticated || !user) {
-      console.log("❌ Not authenticated");
-      router.push("/login");
-      return;
+    if (user?.role === "ADMIN") {
+      console.log("🔄 Admin user, redirecting to admin dashboard");
+      redirect("/dashboard/admin");
     }
+  }, [user?.role]);
 
-    if (user.role === "ADMIN") {
-      console.log("🔄 Admin detected, redirecting");
-      router.push("/dashboard/admin");
-      return;
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      console.log("✅ User authenticated, fetching stats for:", user.id);
+      fetchStats(user.id);
     }
+  }, [isAuthenticated, user?.id]);
 
-    console.log("✅ User authenticated");
-  }, [mounted, user, isAuthenticated, router]);
-
-  if (!mounted) {
+  // ✅ WAIT FOR USER TO LOAD BEFORE RENDERING
+  if (!isAuthenticated || !user || !user.id) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
-          <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-        </div>
+      <div className="space-y-6">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
-  if (!isAuthenticated || !user || user.role === "ADMIN") {
-    return null;
-  }
+  console.log("✅ User authenticated");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Welcome, {user.username}!
-        </h1>
-        <p className="text-muted-foreground">
-          View your shifts and schedule ({user.role})
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">My Schedule</h1>
+        <p className="text-muted-foreground">Welcome back, {user.username}</p>
       </div>
 
-      <ShiftStats />
-      <ShiftCalendar />
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Shifts</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats?.total || 0}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats?.scheduled || 0}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats?.completed || 0}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {isLoading ? "..." : stats?.scheduled || 0}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Calendar - Only render when userId exists */}
+      {user.id && <ShiftCalendar userId={user.id} showLegend={true} />}
     </div>
   );
 }

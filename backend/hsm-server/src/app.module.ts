@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { UsersModule } from './users/users.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { ConventionsModule } from './conventions/conventions.module';
+import { ShiftAssignmentsModule } from './shift-assignment/shift-assignment.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ConventionsModule } from './conventions/conventions.module';
     UsersModule,
     ShiftsModule,
     ConventionsModule,
+    ShiftAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [
