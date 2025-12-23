@@ -65,6 +65,9 @@ model User {
   createdBy   User?   @relation("UserCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdUsers User[] @relation("UserCreator")
 
+  department String?
+  section    String?
+
   // Relations
   shifts              Shift[]
   userConventions     UserConvention[]
@@ -74,6 +77,10 @@ model User {
   // ⬇️ NEW: Shift assignments
   shiftAssignments       ShiftAssignment[]
   createdShiftAssignments ShiftAssignment[] @relation("AssignmentCreator")
+
+
+  sentMessages         Message[]          @relation("SentMessages")       
+  receivedMessages     MessageRecipient[] @relation("ReceivedMessages")  
 
   @@map("users")
 }
@@ -159,4 +166,33 @@ model ShiftAssignment {
   @@index([shiftId])
   @@index([date])
   @@map("shift_assignments")
+}
+
+
+model Message {
+  id                String              @id @default(uuid())
+  title             String
+  content           String              @db.Text
+  senderId          String              @map("sender_id")
+  sender            User                @relation("SentMessages", fields: [senderId], references: [id])
+  targetDepartments String[]            @map("target_departments") // Array of department names
+  targetSections    String[]            @map("target_sections") // Array of section names
+  recipients        MessageRecipient[]
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id         String    @id @default(uuid())
+  messageId  String    @map("message_id")
+  message    Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId     String    @map("user_id")
+  user       User      @relation("ReceivedMessages", fields: [userId], references: [id], onDelete: Cascade)
+  readAt     DateTime? @map("read_at")
+  receivedAt DateTime  @default(now()) @map("received_at")
+
+  @@unique([messageId, userId]) // Prevent duplicate messages to same user
+  @@map("message_recipients")
 }

@@ -15,6 +15,7 @@ import {
   HeartPulse,
   CalendarClock,
   LayoutDashboard,
+  MessageSquare,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssignShiftForm } from "@/components/admin/shift-assignments/assign-shift-form";
@@ -24,12 +25,30 @@ import { BulkAssignForm } from "@/components/admin/shift-assignments/bulk-assign
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+// Import messaging components
+import { useMessages } from "@/hooks/use-messages";
+import { Message, MessageFilters } from "@/types/message";
+import { CreateMessageDialog } from "@/components/messages/create-message-dialog";
+import { MessagesTable } from "@/components/messages/messages-table";
+import { MessagesFilters } from "@/components/messages/messages-filters";
+import { MessageDetailDialog } from "@/components/messages/message-detail-dialog";
+import { CheckCircle2, TrendingUp } from "lucide-react";
+
 export default function AdminDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const { stats, fetchStats } = useUsers();
   const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
+
+  // Messages state
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const {
+    messages,
+    isLoading: isMessagesLoading,
+    fetchMessages,
+  } = useMessages();
 
   useEffect(() => {
     setMounted(true);
@@ -58,7 +77,38 @@ export default function AdminDashboardPage() {
 
     console.log("✅ Admin authenticated, fetching stats");
     fetchStats();
-  }, [mounted, user, isAuthenticated, router, fetchStats]);
+    loadMessages();
+  }, [mounted, user, isAuthenticated, router]);
+
+  const loadMessages = async (filters?: MessageFilters) => {
+    try {
+      await fetchMessages(filters);
+    } catch (error) {
+      console.error("Error loading messages:", error);
+    }
+  };
+
+  const handleFilterChange = (filters: MessageFilters) => {
+    loadMessages(filters);
+  };
+
+  const handleViewDetails = (message: Message) => {
+    setSelectedMessage(message);
+    setIsDetailOpen(true);
+  };
+
+  // Calculate message statistics
+  const totalMessages = messages.length;
+  const totalRecipients = messages.reduce(
+    (sum, msg) => sum + (msg.recipients?.length || 0),
+    0
+  );
+  const totalRead = messages.reduce(
+    (sum, msg) => sum + (msg.recipients?.filter((r) => r.isRead).length || 0),
+    0
+  );
+  const readRate =
+    totalRecipients > 0 ? Math.round((totalRead / totalRecipients) * 100) : 0;
 
   if (!mounted) {
     return (
@@ -107,7 +157,7 @@ export default function AdminDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome, {user.username}! Manage users and shift assignments
+            Welcome, {user.username}! Manage users, shifts, and communications
           </p>
         </div>
         <Button asChild variant="outline">
@@ -123,10 +173,14 @@ export default function AdminDashboardPage() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="messages" className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Messages
           </TabsTrigger>
           <TabsTrigger value="assign" className="flex items-center gap-2">
             <CalendarClock className="h-4 w-4" />
@@ -256,7 +310,7 @@ export default function AdminDashboardPage() {
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Button
                 asChild
                 variant="outline"
@@ -271,6 +325,20 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                 </Link>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+                onClick={() => setActiveTab("messages")}
+              >
+                <MessageSquare className="h-6 w-6 mb-2" />
+                <div className="text-left">
+                  <div className="font-semibold">Broadcast Messages</div>
+                  <div className="text-xs text-muted-foreground">
+                    Send messages to staff members
+                  </div>
+                </div>
               </Button>
 
               <Button
@@ -318,8 +386,118 @@ export default function AdminDashboardPage() {
                   </div>
                 </Link>
               </Button>
+
+              <Button
+                variant="outline"
+                className="h-auto flex-col items-start p-4"
+                onClick={() => setActiveTab("calendar")}
+              >
+                <CalendarClock className="h-6 w-6 mb-2" />
+                <div className="text-left">
+                  <div className="font-semibold">View Calendar</div>
+                  <div className="text-xs text-muted-foreground">
+                    See all shift assignments
+                  </div>
+                </div>
+              </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Messages Tab */}
+        <TabsContent value="messages" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Broadcast Messages
+              </h2>
+              <p className="text-gray-600">
+                Send and manage messages to staff members
+              </p>
+            </div>
+            <CreateMessageDialog />
+          </div>
+
+          {/* Message Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Messages
+                </CardTitle>
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalMessages}</div>
+                <p className="text-xs text-muted-foreground">
+                  Broadcast messages sent
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Recipients
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalRecipients}</div>
+                <p className="text-xs text-muted-foreground">
+                  Users who received messages
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Messages Read
+                </CardTitle>
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalRead}</div>
+                <p className="text-xs text-muted-foreground">
+                  Out of {totalRecipients} total
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Read Rate</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{readRate}%</div>
+                <p className="text-xs text-muted-foreground">
+                  Average read rate
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <MessagesFilters
+            onFilterChange={handleFilterChange}
+            isLoading={isMessagesLoading}
+          />
+
+          {/* Messages Table */}
+          <MessagesTable
+            messages={messages}
+            isLoading={isMessagesLoading}
+            onViewDetails={handleViewDetails}
+          />
+
+          {/* Message Detail Dialog */}
+          <MessageDetailDialog
+            message={selectedMessage}
+            open={isDetailOpen}
+            onOpenChange={setIsDetailOpen}
+          />
         </TabsContent>
 
         {/* Assign Shift Tab */}

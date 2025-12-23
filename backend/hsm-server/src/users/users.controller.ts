@@ -39,7 +39,7 @@ export class UsersController {
   /**
    * GET /users
    * Get all users with pagination and filters (Admin only)
-   * Query params: page, limit, role, isActive, search
+   * Query params: page, limit, role, isActive, search, department, section
    */
   @Get()
   @Roles('ADMIN')
@@ -49,6 +49,8 @@ export class UsersController {
     @Query('role') role?: string,
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
+    @Query('department') department?: string, // ✅ ADD THIS
+    @Query('section') section?: string, // ✅ ADD THIS
   ) {
     return this.usersService.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -56,6 +58,8 @@ export class UsersController {
       role,
       isActive: isActive ? isActive === 'true' : undefined,
       search,
+      department, // ✅ ADD THIS
+      section, // ✅ ADD THIS
     });
   }
 
@@ -67,6 +71,29 @@ export class UsersController {
   @Roles('ADMIN')
   getStats() {
     return this.usersService.getStats();
+  }
+
+  /**
+   * ✅ NEW ENDPOINT
+   * GET /users/departments
+   * Get all unique departments (Admin only)
+   */
+  @Get('departments')
+  @Roles('ADMIN')
+  getDepartments() {
+    return this.usersService.getDepartments();
+  }
+
+  /**
+   * ✅ NEW ENDPOINT
+   * GET /users/sections
+   * Get all unique sections, optionally filtered by department (Admin only)
+   * Query params: department (optional)
+   */
+  @Get('sections')
+  @Roles('ADMIN')
+  getSections(@Query('department') department?: string) {
+    return this.usersService.getSections(department);
   }
 
   /**

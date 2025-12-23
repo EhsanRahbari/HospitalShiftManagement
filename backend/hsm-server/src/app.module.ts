@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { ConventionsModule } from './conventions/conventions.module';
 import { ShiftAssignmentsModule } from './shift-assignment/shift-assignment.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ShiftAssignmentsModule } from './shift-assignment/shift-assignment.modu
     ShiftsModule,
     ConventionsModule,
     ShiftAssignmentsModule,
+    MessagesModule,
   ],
   controllers: [AppController],
   providers: [

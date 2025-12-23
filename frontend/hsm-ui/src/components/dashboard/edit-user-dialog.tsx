@@ -22,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -33,16 +34,53 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Pencil } from "lucide-react";
 
-const formSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().optional(),
-  role: z.enum(["ADMIN", "DOCTOR", "NURSE"]),
-  isActive: z.boolean(),
-});
+const formSchema = z
+  .object({
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    password: z.string().optional(),
+    role: z.enum(["ADMIN", "DOCTOR", "NURSE"]),
+    isActive: z.boolean(),
+    department: z.string().optional(),
+    section: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Department and section are required for DOCTOR and NURSE
+      if (data.role === "DOCTOR" || data.role === "NURSE") {
+        return data.department && data.section;
+      }
+      return true;
+    },
+    {
+      message: "Department and section are required for doctors and nurses",
+      path: ["department"],
+    }
+  );
+
+const DEPARTMENTS = [
+  "Emergency",
+  "Surgery",
+  "Pediatrics",
+  "Cardiology",
+  "Neurology",
+  "Orthopedics",
+  "Radiology",
+  "Laboratory",
+];
+
+const SECTIONS = [
+  "ICU",
+  "ER",
+  "General",
+  "OR",
+  "CCU",
+  "NICU",
+  "Outpatient",
+  "Inpatient",
+];
 
 interface EditUserDialogProps {
   user: User;
@@ -60,6 +98,8 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       password: "",
       role: user.role as "ADMIN" | "DOCTOR" | "NURSE",
       isActive: user.isActive,
+      department: (user as any).department || "",
+      section: (user as any).section || "",
     },
   });
 
@@ -70,23 +110,40 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       password: "",
       role: user.role as "ADMIN" | "DOCTOR" | "NURSE",
       isActive: user.isActive,
+      department: (user as any).department || "",
+      section: (user as any).section || "",
     });
   }, [user, form]);
+
+  const selectedRole = form.watch("role");
+  const showDepartmentSection =
+    selectedRole === "DOCTOR" || selectedRole === "NURSE";
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
       console.log("Updating user:", user.id, values);
 
-      // Remove password if empty
+      // Build update data
       const updateData: any = {
         username: values.username,
         role: values.role,
         isActive: values.isActive,
       };
 
+      // Add password if provided
       if (values.password && values.password.length >= 6) {
         updateData.password = values.password;
+      }
+
+      // Add department and section for non-admin users
+      if (showDepartmentSection) {
+        updateData.department = values.department;
+        updateData.section = values.section;
+      } else {
+        // Clear department and section if role changed to ADMIN
+        updateData.department = null;
+        updateData.section = null;
       }
 
       await updateUser(user.id, updateData);
@@ -108,7 +165,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
           <Pencil className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit User</DialogTitle>
           <DialogDescription>
@@ -182,6 +239,74 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 </FormItem>
               )}
             />
+
+            {showDepartmentSection && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {DEPARTMENTS.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Required for message routing
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="section"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Section *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select section" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {SECTIONS.map((section) => (
+                            <SelectItem key={section} value={section}>
+                              {section}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Required for message routing
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
             <FormField
               control={form.control}

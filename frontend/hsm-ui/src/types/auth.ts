@@ -1,17 +1,18 @@
-// src/types/auth.ts
-
 export type Role = "ADMIN" | "DOCTOR" | "NURSE";
 
 export enum Roles {
-  ADMIN = 'ADMIN',
-  DOCTOR = 'DOCTOR',
-  NURSE = 'NURSE',
+  ADMIN = "ADMIN",
+  DOCTOR = "DOCTOR",
+  NURSE = "NURSE",
 }
+
 export interface User {
   id: string;
   username: string;
   role: Role;
   isActive: boolean;
+  department?: string | null; // ✅ ADD THIS
+  section?: string | null; // ✅ ADD THIS
   createdAt: string;
   updatedAt: string;
   createdBy?: {

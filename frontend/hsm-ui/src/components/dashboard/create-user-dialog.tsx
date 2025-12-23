@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -33,13 +34,51 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Plus } from "lucide-react";
 
-const formSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["ADMIN", "DOCTOR", "NURSE"], {
-    required_error: "Please select a role",
-  }),
-});
+const formSchema = z
+  .object({
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    role: z.enum(["ADMIN", "DOCTOR", "NURSE"], {
+      required_error: "Please select a role",
+    }),
+    department: z.string().optional(),
+    section: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Department and section are required for DOCTOR and NURSE
+      if (data.role === "DOCTOR" || data.role === "NURSE") {
+        return data.department && data.section;
+      }
+      return true;
+    },
+    {
+      message: "Department and section are required for doctors and nurses",
+      path: ["department"],
+    }
+  );
+
+const DEPARTMENTS = [
+  "Emergency",
+  "Surgery",
+  "Pediatrics",
+  "Cardiology",
+  "Neurology",
+  "Orthopedics",
+  "Radiology",
+  "Laboratory",
+];
+
+const SECTIONS = [
+  "ICU",
+  "ER",
+  "General",
+  "OR",
+  "CCU",
+  "NICU",
+  "Outpatient",
+  "Inpatient",
+];
 
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false);
@@ -52,18 +91,34 @@ export function CreateUserDialog() {
       username: "",
       password: "",
       role: "DOCTOR",
+      department: "",
+      section: "",
     },
   });
+
+  const selectedRole = form.watch("role");
+  const showDepartmentSection =
+    selectedRole === "DOCTOR" || selectedRole === "NURSE";
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
       setIsLoading(true);
       console.log("🔵 Creating user:", values);
 
-      await createUser({
-        ...values,
+      const userData: any = {
+        username: values.username,
+        password: values.password,
+        role: values.role,
         isActive: true,
-      });
+      };
+
+      // Add department and section for non-admin users
+      if (showDepartmentSection) {
+        userData.department = values.department;
+        userData.section = values.section;
+      }
+
+      await createUser(userData);
 
       toast.success("User created successfully");
       form.reset();
@@ -84,7 +139,7 @@ export function CreateUserDialog() {
           Add User
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New User</DialogTitle>
           <DialogDescription>
@@ -159,7 +214,75 @@ export function CreateUserDialog() {
               )}
             />
 
-            <div className="flex justify-end gap-2">
+            {showDepartmentSection && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {DEPARTMENTS.map((dept) => (
+                            <SelectItem key={dept} value={dept}>
+                              {dept}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Required for message routing
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="section"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Section *</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={isLoading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select section" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {SECTIONS.map((section) => (
+                            <SelectItem key={section} value={section}>
+                              {section}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Required for message routing
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
