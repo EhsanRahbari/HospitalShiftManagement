@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useMessages } from "@/hooks/use-messages";
+import { useUnreadMessages } from "@/hooks/use-unread-messages";
 import { Message } from "@/types/message";
 import {
   Card,
@@ -31,6 +32,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+interface UserMessagesViewProps {
+  onMessageRead?: () => void;
+}
+
 interface UserMessage extends Message {
   recipientInfo?: {
     isRead: boolean;
@@ -38,7 +43,9 @@ interface UserMessage extends Message {
   };
 }
 
-export function UserMessagesView() {
+export function UserMessagesView({
+  onMessageRead,
+}: UserMessagesViewProps = {}) {
   const [messages, setMessages] = useState<UserMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<UserMessage | null>(
     null
@@ -47,6 +54,8 @@ export function UserMessagesView() {
   const { getMyMessages, markAsRead } = useMessages();
 
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+
+  const { refetch: refetchUnreadCount } = useUnreadMessages();
 
   useEffect(() => {
     loadMessages();
@@ -93,6 +102,7 @@ export function UserMessagesView() {
               : m
           )
         );
+        onMessageRead?.();
       } catch (error) {
         console.error("Error marking message as read:", error);
       }

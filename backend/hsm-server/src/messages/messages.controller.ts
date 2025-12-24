@@ -67,8 +67,9 @@ export class MessagesController {
    */
   @Get('unread-count')
   @Roles('DOCTOR', 'NURSE')
-  getUnreadCount(@Req() req: any) {
-    return this.messagesService.getUnreadCount(req.user.userId);
+  async getUnreadCount(@Req() req: any) {
+    const count = await this.messagesService.getUnreadCount(req.user.userId);
+    return { count };
   }
 
   /**
