@@ -26,6 +26,8 @@ import {
   Shield,
   Stethoscope,
   HeartPulse,
+  Building2,
+  MapPin,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,9 +66,10 @@ export function UserTable({
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Department</TableHead>
+              <TableHead>Section</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>Created By</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -83,10 +86,13 @@ export function UserTable({
                   <Skeleton className="h-6 w-20" />
                 </TableCell>
                 <TableCell>
-                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-24" />
                 </TableCell>
                 <TableCell>
-                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-6 w-16" />
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-24" />
@@ -111,15 +117,16 @@ export function UserTable({
   }
 
   return (
-    <div className="rounded-lg border bg-white">
+    <div className="rounded-lg border bg-white overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>User</TableHead>
             <TableHead>Role</TableHead>
+            <TableHead>Department</TableHead>
+            <TableHead>Section</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
-            <TableHead>Created By</TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
@@ -132,6 +139,8 @@ export function UserTable({
               .join("")
               .toUpperCase()
               .slice(0, 2);
+
+            const userWithDept = user as any;
 
             return (
               <TableRow key={user.id}>
@@ -155,15 +164,32 @@ export function UserTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
+                  {userWithDept.department ? (
+                    <Badge variant="outline" className="gap-1">
+                      <Building2 className="h-3 w-3" />
+                      {userWithDept.department}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {userWithDept.section ? (
+                    <Badge variant="outline" className="gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {userWithDept.section}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-gray-400">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
                   <Badge variant={user.isActive ? "default" : "secondary"}>
                     {user.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm text-gray-600">
                   {format(new Date(user.createdAt), "MMM d, yyyy")}
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {user.createdBy?.username || "-"}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>

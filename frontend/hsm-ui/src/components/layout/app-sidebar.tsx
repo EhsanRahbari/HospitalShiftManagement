@@ -38,6 +38,8 @@ import {
   CalendarCheck,
   UserCog,
   BarChart3,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -72,6 +74,18 @@ const adminSections = [
     ],
   },
   {
+    label: "Communication",
+    items: [
+      {
+        title: "Broadcast Messages",
+        url: "/dashboard/admin?tab=messages",
+        icon: MessageSquare,
+        description: "Send messages to staff",
+        badge: "New",
+      },
+    ],
+  },
+  {
     label: "Shift Management",
     items: [
       {
@@ -82,14 +96,13 @@ const adminSections = [
       },
       {
         title: "Shift Assignments",
-        url: "/dashboard/admin#assign",
+        url: "/dashboard/admin?tab=assign",
         icon: CalendarClock,
         description: "Assign shifts to users",
-        badge: "New",
       },
       {
         title: "Schedule Calendar",
-        url: "/dashboard/admin#calendar",
+        url: "/dashboard/admin?tab=calendar",
         icon: CalendarCheck,
         description: "Visual calendar view",
       },
@@ -115,7 +128,7 @@ const userSections = [
     items: [
       {
         title: "Overview",
-        url: "/dashboard",
+        url: "/dashboard?tab=schedule",
         icon: LayoutDashboard,
         description: "My shift calendar",
       },
@@ -126,7 +139,7 @@ const userSections = [
     items: [
       {
         title: "My Shifts",
-        url: "/dashboard/my-shifts",
+        url: "/dashboard?tab=schedule",
         icon: CalendarCheck,
         description: "View assigned shifts",
       },
@@ -135,6 +148,18 @@ const userSections = [
         url: "/dashboard/my-conventions",
         icon: FileText,
         description: "My work preferences",
+      },
+    ],
+  },
+  {
+    label: "Communication",
+    items: [
+      {
+        title: "Messages",
+        url: "/dashboard?tab=messages",
+        icon: MessageSquare,
+        description: "View my messages",
+        badge: "New",
       },
     ],
   },
@@ -225,7 +250,9 @@ export function AppSidebar() {
                   const isActive =
                     pathname === item.url ||
                     (item.url.includes("#") &&
-                      pathname === item.url.split("#")[0]);
+                      pathname === item.url.split("#")[0]) ||
+                    (item.url.includes("?tab=") &&
+                      pathname === item.url.split("?")[0]);
 
                   return (
                     <SidebarMenuItem key={item.title}>
@@ -305,13 +332,35 @@ export function AppSidebar() {
                   </Link>
                 </DropdownMenuItem>
                 {user?.role !== "ADMIN" && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/dashboard/my-conventions"
+                        className="cursor-pointer"
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        My Conventions
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        href="/dashboard?tab=messages"
+                        className="cursor-pointer"
+                      >
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        My Messages
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {user?.role === "ADMIN" && (
                   <DropdownMenuItem asChild>
                     <Link
-                      href="/dashboard/my-conventions"
+                      href="/dashboard/admin?tab=messages"
                       className="cursor-pointer"
                     >
-                      <FileText className="mr-2 h-4 w-4" />
-                      My Conventions
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Broadcast Messages
                     </Link>
                   </DropdownMenuItem>
                 )}

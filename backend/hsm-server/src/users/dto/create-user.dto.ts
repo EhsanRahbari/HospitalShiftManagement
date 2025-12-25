@@ -1,28 +1,39 @@
 import {
   IsString,
   IsNotEmpty,
-  MinLength,
   IsEnum,
-  IsOptional,
+  MinLength,
   IsBoolean,
+  IsOptional,
+  ValidateIf,
 } from 'class-validator';
-import { Role } from '../../types/role.type';
+import { Role } from '../../../generated/client';
 
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
-  username!: string;
+  username: string;
 
   @IsString()
-  @IsNotEmpty()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
-  password!: string;
+  @MinLength(6)
+  password: string;
 
-  @IsEnum(['ADMIN', 'DOCTOR', 'NURSE'])
-  @IsNotEmpty()
-  role!: Role;
+  @IsEnum(Role)
+  role: Role;
 
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // ✅ ADD DEPARTMENT - Required for DOCTOR and NURSE
+  @ValidateIf((o) => o.role !== 'ADMIN')
+  @IsString()
+  @IsNotEmpty({ message: 'Department is required for non-admin users' })
+  department?: string;
+
+  // ✅ ADD SECTION - Required for DOCTOR and NURSE
+  @ValidateIf((o) => o.role !== 'ADMIN')
+  @IsString()
+  @IsNotEmpty({ message: 'Section is required for non-admin users' })
+  section?: string;
 }

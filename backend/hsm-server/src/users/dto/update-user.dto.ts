@@ -1,11 +1,11 @@
 import {
   IsString,
-  IsOptional,
-  MinLength,
   IsEnum,
+  MinLength,
   IsBoolean,
+  IsOptional,
 } from 'class-validator';
-import { Role } from '../../types/role.type';
+import { Role } from '../../../generated/client';
 
 export class UpdateUserDto {
   @IsString()
@@ -13,15 +13,24 @@ export class UpdateUserDto {
   username?: string;
 
   @IsString()
+  @MinLength(6)
   @IsOptional()
-  @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password?: string;
 
-  @IsEnum(['ADMIN', 'DOCTOR', 'NURSE'])
+  @IsEnum(Role)
   @IsOptional()
   role?: Role;
 
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // ✅ ADD THESE
+  @IsString()
+  @IsOptional()
+  department?: string;
+
+  @IsString()
+  @IsOptional()
+  section?: string;
 }

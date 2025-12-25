@@ -1,5 +1,3 @@
-// src/types/user.ts
-
 import { Role, User } from "./auth";
 
 export interface CreateUserRequest {

@@ -46,6 +46,8 @@ export class UsersService {
         password: hashedPassword,
         role: createUserDto.role,
         isActive: createUserDto.isActive ?? true,
+        department: createUserDto.department, // ✅ ADD THIS
+        section: createUserDto.section, // ✅ ADD THIS
         createdById,
       },
       select: {
@@ -53,6 +55,8 @@ export class UsersService {
         username: true,
         role: true,
         isActive: true,
+        department: true, // ✅ ADD THIS
+        section: true, // ✅ ADD THIS
         createdAt: true,
         updatedAt: true,
         createdBy: {
@@ -76,6 +80,8 @@ export class UsersService {
     role?: string;
     isActive?: boolean;
     search?: string;
+    department?: string; // ✅ ADD THIS
+    section?: string; // ✅ ADD THIS
   }): Promise<{
     data: UserResponseDto[];
     meta: {
@@ -107,6 +113,16 @@ export class UsersService {
       };
     }
 
+    // ✅ ADD DEPARTMENT FILTER
+    if (params?.department) {
+      where.department = params.department;
+    }
+
+    // ✅ ADD SECTION FILTER
+    if (params?.section) {
+      where.section = params.section;
+    }
+
     // Get total count
     const total = await this.prisma.user.count({ where });
 
@@ -120,6 +136,8 @@ export class UsersService {
         username: true,
         role: true,
         isActive: true,
+        department: true, // ✅ ADD THIS
+        section: true, // ✅ ADD THIS
         createdAt: true,
         updatedAt: true,
         createdBy: {
@@ -156,6 +174,8 @@ export class UsersService {
         username: true,
         role: true,
         isActive: true,
+        department: true, // ✅ ADD THIS
+        section: true, // ✅ ADD THIS
         createdAt: true,
         updatedAt: true,
         createdBy: {
@@ -228,6 +248,16 @@ export class UsersService {
       updateData.isActive = updateUserDto.isActive;
     }
 
+    // ✅ ADD DEPARTMENT UPDATE
+    if (updateUserDto.department !== undefined) {
+      updateData.department = updateUserDto.department;
+    }
+
+    // ✅ ADD SECTION UPDATE
+    if (updateUserDto.section !== undefined) {
+      updateData.section = updateUserDto.section;
+    }
+
     // Update user
     const user = await this.prisma.user.update({
       where: { id },
@@ -237,6 +267,8 @@ export class UsersService {
         username: true,
         role: true,
         isActive: true,
+        department: true, // ✅ ADD THIS
+        section: true, // ✅ ADD THIS
         createdAt: true,
         updatedAt: true,
         createdBy: {
@@ -312,6 +344,7 @@ export class UsersService {
       doctor: number;
       nurse: number;
     };
+    byDepartment?: Record<string, number>; // ✅ ADD THIS
   }> {
     const [total, active, admins, doctors, nurses] = await Promise.all([
       this.prisma.user.count(),
@@ -320,6 +353,22 @@ export class UsersService {
       this.prisma.user.count({ where: { role: 'DOCTOR' } }),
       this.prisma.user.count({ where: { role: 'NURSE' } }),
     ]);
+
+    // ✅ ADD DEPARTMENT STATS
+    const usersByDepartment = await this.prisma.user.groupBy({
+      by: ['department'],
+      where: {
+        department: { not: null },
+      },
+      _count: true,
+    });
+
+    const byDepartment: Record<string, number> = {};
+    usersByDepartment.forEach((item) => {
+      if (item.department) {
+        byDepartment[item.department] = item._count;
+      }
+    });
 
     return {
       total,
@@ -330,6 +379,53 @@ export class UsersService {
         doctor: doctors,
         nurse: nurses,
       },
+      byDepartment, // ✅ ADD THIS
     };
+  }
+
+  /**
+   * ✅ NEW METHOD: Get all unique departments
+   */
+  async getDepartments(): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        department: { not: null },
+      },
+      select: {
+        department: true,
+      },
+      distinct: ['department'],
+    });
+
+    return users
+      .map((u) => u.department)
+      .filter((d): d is string => d !== null)
+      .sort();
+  }
+
+  /**
+   * ✅ NEW METHOD: Get all unique sections (optionally filtered by department)
+   */
+  async getSections(department?: string): Promise<string[]> {
+    const where: any = {
+      section: { not: null },
+    };
+
+    if (department) {
+      where.department = department;
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+      select: {
+        section: true,
+      },
+      distinct: ['section'],
+    });
+
+    return users
+      .map((u) => u.section)
+      .filter((s): s is string => s !== null)
+      .sort();
   }
 }
